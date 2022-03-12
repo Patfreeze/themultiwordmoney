@@ -49,9 +49,11 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
         }
         List<String> a_groupList = new ArrayList<>();
 
+
         switch(cmd.getName().toLowerCase()) {
 
-            case "killedplayer":
+            case "killedplayers":
+                a_groupList = new ArrayList<>();
                 switch(args.length) {
                     case 1:
                         // list of group of world
@@ -60,7 +62,7 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
                         }
 
                         for(String sGroupOption : a_groupList) {
-                            if(args[1].equalsIgnoreCase("") || sGroupOption.startsWith(args[1]) || sGroupOption.toLowerCase().startsWith(args[1])) {
+                            if(args[0].equalsIgnoreCase("") || sGroupOption.startsWith(args[0]) || sGroupOption.toLowerCase().startsWith(args[0])) {
                                 list.add(sGroupOption);
                             }
                         }
@@ -95,6 +97,7 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
             case "themultiworldmoney":
             case "tmwm":
                 // TheMultiWorldMoney module so check what we need
+                a_groupList = new ArrayList<>();
 
                 switch(args.length) {
                     ////////////////////////////////////////////

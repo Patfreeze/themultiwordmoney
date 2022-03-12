@@ -13,9 +13,16 @@ import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -72,6 +79,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     String sObjectColor = "§a"; // LightGreen
     String sCorrectColor = "§2"; // Green
     String sYellowColor = "§e"; // Yellow
+    String sResetColor = "§r";
 
     String sVersion = getDescription().getVersion(); // version in plugin.yml
 
@@ -209,9 +217,13 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
         boolean bUsePay = (bMod || p.hasPermission("themultiworldmoney.pay"));
 
+        boolean bUsekilledPlayers = (bMod || p.hasPermission("killedplayers.use"));
+
         switch(sType) {
             case "normal": // Mean always all players
                 return true;
+            case "killedplayers": // OP ADMIN MOD killedplayers.use
+                return bUsekilledPlayers;
             case "pay": // OP ADMIN MOD PAY
                 return bUsePay;
             case "mod": // OP ADMIN MOD
@@ -405,7 +417,6 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             public void run(){
 
                 if (!setupEconomy() ) {
-
                     Bukkit.getServer().getPluginManager().disablePlugin(_this);
                     return;
                 }
@@ -413,7 +424,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                 getCommand("themultiworldmoney").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
                 getCommand("tmwm").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
                 getCommand("payto").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
-                getCommand("killedPlayer").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
+                getCommand("killedplayers").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
 
 
                 setupPermissions();
@@ -871,7 +882,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     private boolean setupEconomy() {
 
         if (getServer().getPluginManager().getPlugin("Vault") == null) {
-            LOG.severe(String.format("[%s] - Disabled due to no Vault dependency found!", getDescription().getName()));
+            LOG.severe(String.format(ANSI_RED+"[%s] - Disabled due to no Vault dependency found!"+ANSI_RESET, getDescription().getName()));
             return false;
         }
 
@@ -879,7 +890,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         RegisteredServiceProvider<Economy> rsp = getServer().getServicesManager().getRegistration(Economy.class);
         if (rsp == null) {
             // Bad luck is not working
-            LOG.severe(String.format("[%s] - Disabled due to no Economy plugin found!", getDescription().getName()));
+            LOG.severe(String.format(ANSI_RED+"[%s] - Disabled due to no Economy plugin found!"+ANSI_RESET, getDescription().getName()));
             return false;
         }
 
@@ -993,6 +1004,66 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         playerReceive.sendMessage("Thanks to §a"+playerDonator.getName()+"§r that give you §a$"+iAmount+".00 §r!"); // But amount +
 
     }
+    // Ratio killed vs killer
+
+    @EventHandler
+    public Entity getKiller(EntityDeathEvent event) {
+        EntityDamageEvent entityDamageEvent = event.getEntity().getLastDamageCause();
+        if ((entityDamageEvent != null) && !entityDamageEvent.isCancelled() && (entityDamageEvent instanceof EntityDamageByEntityEvent)) {
+            Entity damager = ((EntityDamageByEntityEvent) entityDamageEvent).getDamager();
+
+            if (damager instanceof Projectile) {
+                LivingEntity shooter = (LivingEntity) ((Projectile) damager).getShooter();
+                if (shooter != null) {
+                    if(shooter instanceof Player) {
+                        String sGroup = getGroupNameByWorld(shooter.getWorld().getName());
+                        setKilledPlayers((Player) shooter, sGroup);
+                    }
+                    return shooter;
+                }
+            }
+
+            if(damager instanceof Player) {
+                String sGroup = getGroupNameByWorld(damager.getWorld().getName());
+                setKilledPlayers((Player) damager, sGroup);
+            }
+
+            return damager;
+        }
+
+        return null;
+    }
+
+    private void setKilledPlayers(Player player, String sGroup) {
+        // Save data group
+        FileConfiguration config = null;
+        File file = getFileMoneyPlayerPerGroup(player);
+
+        config = YamlConfiguration.loadConfiguration(file);
+        int iKills = getKilledPlayers(player,sGroup) + 1;
+        config.set("Player.killedPlayers."+sGroup, iKills);
+
+        try {
+            config.save(file);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public int getKilledPlayers(Player player, String groupWorld) {
+        // Get the file player
+        File playerFile = getFileMoneyPlayerPerGroup(player);
+        YamlConfiguration playerConfig = YamlConfiguration.loadConfiguration(playerFile);
+
+        // make the name lowercase
+        groupWorld = groupWorld.toLowerCase();
+
+        // Check if the groupWorld exist if not return 0
+        if(playerConfig.isSet("Player.killedPlayers."+groupWorld)) {
+            return playerConfig.getInt("Player.killedPlayers."+groupWorld);
+        }
+        return 0;
+    }
 
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 
@@ -1009,6 +1080,20 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
         switch(command.getName().toLowerCase()) {
 
+
+            case "killedplayers":
+                String worldGroup = "";
+                if(args.length > 0) {
+                    worldGroup = args[0];
+                }
+                else {
+                    // Get the current group of world
+                    worldGroup = getGroupNameByWorld(player.getWorld().getName());
+                }
+                int kills = getKilledPlayers(player,worldGroup);
+                sender.sendMessage(sPluginName+sResetColor+"You have killed "+sYellowColor+kills+sResetColor+" player(s) on " + sYellowColor+worldGroup);
+                return true;
+
             case "payto":
 
                 if(bConsole) {
@@ -1017,7 +1102,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                     return true;
                 }
 
-                if(havePermission(sender, "pay")) {
+                if(args.length > 1 && havePermission(sender, "pay")) {
                     // call function
                     payPlayer(player, args[0], args[1]);
                 }
