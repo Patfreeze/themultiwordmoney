@@ -29,6 +29,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.*;
 import java.io.File;
@@ -42,7 +43,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     // 2.2.0
     /*
     // - Update for 1.18.2
-    // - Extra added player kills per group
+    // - Extra added /killedplayers [group] to get the rate kills players
      */
 
     // 2.1.1
@@ -73,6 +74,8 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     private static Economy econ = null;
     private static Chat chat = null;
     private static Permission perms = null;
+
+    private static final DecimalFormat df = new DecimalFormat("0.00");
 
     String sPluginName = "§c[§eTheMultiWorldMoney - TMWM§c] "; // PlugIn Name in Yellow
     String sErrorColor = "§c"; // LightRed
@@ -1008,6 +1011,13 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     @EventHandler
     public Entity getKiller(EntityDeathEvent event) {
+
+        LivingEntity playerDie = event.getEntity();
+        if(!(playerDie instanceof Player)) {
+            return null;
+        }
+        LOG.info("getKiller was call because the EntityDeath is a player");
+
         EntityDamageEvent entityDamageEvent = event.getEntity().getLastDamageCause();
         if ((entityDamageEvent != null) && !entityDamageEvent.isCancelled() && (entityDamageEvent instanceof EntityDamageByEntityEvent)) {
             Entity damager = ((EntityDamageByEntityEvent) entityDamageEvent).getDamager();
@@ -1018,6 +1028,11 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                     if(shooter instanceof Player) {
                         String sGroup = getGroupNameByWorld(shooter.getWorld().getName());
                         setKilledPlayers((Player) shooter, sGroup);
+
+                        // If die by another player
+                        setDiedByPlayers((Player) playerDie, sGroup);
+
+
                     }
                     return shooter;
                 }
@@ -1026,6 +1041,9 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             if(damager instanceof Player) {
                 String sGroup = getGroupNameByWorld(damager.getWorld().getName());
                 setKilledPlayers((Player) damager, sGroup);
+
+                // If die by another player
+                setDiedByPlayers((Player) playerDie, sGroup);
             }
 
             return damager;
@@ -1034,13 +1052,35 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         return null;
     }
 
+    private void setDiedByPlayers(Player player, String sGroup) {
+        // Save data group
+        FileConfiguration config = null;
+        File file = getFileMoneyPlayerPerGroup(player);
+
+        config = YamlConfiguration.loadConfiguration(file);
+        int iKills = 1;
+        if(config.isSet("Player.diedByPlayers."+sGroup)) {
+            iKills = config.getInt("Player.diedByPlayers."+sGroup) + 1;
+        }
+        config.set("Player.diedByPlayers."+sGroup, iKills);
+
+        try {
+            config.save(file);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     private void setKilledPlayers(Player player, String sGroup) {
         // Save data group
         FileConfiguration config = null;
         File file = getFileMoneyPlayerPerGroup(player);
 
         config = YamlConfiguration.loadConfiguration(file);
-        int iKills = getKilledPlayers(player,sGroup) + 1;
+        int iKills = 1;
+        if(config.isSet("Player.killedPlayers."+sGroup)) {
+            iKills = config.getInt("Player.killedPlayers."+sGroup) + 1;
+        }
         config.set("Player.killedPlayers."+sGroup, iKills);
 
         try {
@@ -1050,19 +1090,41 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         }
     }
 
-    public int getKilledPlayers(Player player, String groupWorld) {
+    public void getKilledPlayers(Player player, String groupWorld) {
         // Get the file player
         File playerFile = getFileMoneyPlayerPerGroup(player);
         YamlConfiguration playerConfig = YamlConfiguration.loadConfiguration(playerFile);
 
         // make the name lowercase
-        groupWorld = groupWorld.toLowerCase();
+        String groupWorldlow = groupWorld.toLowerCase();
+
+        int killedCount = 0;
+        int diedCount = 0;
+        double rateCount = 0.0;
 
         // Check if the groupWorld exist if not return 0
-        if(playerConfig.isSet("Player.killedPlayers."+groupWorld)) {
-            return playerConfig.getInt("Player.killedPlayers."+groupWorld);
+        if(playerConfig.isSet("Player.killedPlayers."+groupWorldlow)) {
+            killedCount = playerConfig.getInt("Player.killedPlayers."+groupWorldlow);
         }
-        return 0;
+
+        if(playerConfig.isSet("Player.diedByPlayers."+groupWorldlow)) {
+            diedCount = playerConfig.getInt("Player.diedByPlayers."+groupWorldlow);
+        }
+
+        if(diedCount != 0) {
+            rateCount = killedCount / (double) diedCount;
+        }
+
+        player.sendMessage(sPluginName+sResetColor+" --> "+sYellowColor+groupWorld.toUpperCase());
+        player.sendMessage("You have killed "+sYellowColor+killedCount+sResetColor+" player(s)");
+        player.sendMessage("You have been killed "+sYellowColor+diedCount+sResetColor+" time(s)");
+        if(diedCount != 0) {
+            player.sendMessage("Your rate "+sYellowColor+df.format(rateCount)+sResetColor);
+        }
+        else {
+            player.sendMessage("Your rate PERFECT!!");
+        }
+
     }
 
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -1090,8 +1152,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                     // Get the current group of world
                     worldGroup = getGroupNameByWorld(player.getWorld().getName());
                 }
-                int kills = getKilledPlayers(player,worldGroup);
-                sender.sendMessage(sPluginName+sResetColor+"You have killed "+sYellowColor+kills+sResetColor+" player(s) on " + sYellowColor+worldGroup);
+                getKilledPlayers(player,worldGroup);
                 return true;
 
             case "payto":
