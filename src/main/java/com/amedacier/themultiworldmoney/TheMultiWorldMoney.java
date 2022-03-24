@@ -40,6 +40,11 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     static String sTimezone = "America/New_York";
 
+    // 2.2.1
+    /*
+    // - bug fix - returns non-void type org.bukkit.entity.Entity
+     */
+
     // 2.2.0
     /*
     // - Update for 1.18.2
@@ -1010,13 +1015,12 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     // Ratio killed vs killer
 
     @EventHandler
-    public Entity getKiller(EntityDeathEvent event) {
+    public void getKiller(EntityDeathEvent event) {
 
         LivingEntity playerDie = event.getEntity();
         if(!(playerDie instanceof Player)) {
-            return null;
+            return;
         }
-        LOG.info("getKiller was call because the EntityDeath is a player");
 
         EntityDamageEvent entityDamageEvent = event.getEntity().getLastDamageCause();
         if ((entityDamageEvent != null) && !entityDamageEvent.isCancelled() && (entityDamageEvent instanceof EntityDamageByEntityEvent)) {
@@ -1034,7 +1038,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
 
                     }
-                    return shooter;
+                    return;
                 }
             }
 
@@ -1046,10 +1050,10 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                 setDiedByPlayers((Player) playerDie, sGroup);
             }
 
-            return damager;
+            return;
         }
 
-        return null;
+        return;
     }
 
     private void setDiedByPlayers(Player player, String sGroup) {

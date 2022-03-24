@@ -20,7 +20,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
 
-    String[] a_sLevel_1 = {"help","group","baltop", "pay","killedPlayer"};
+    String[] a_sLevel_1 = {"help","group","baltop", "pay"};
     String[] a_sLevel_1_OP = {"player"};
 
     File dataFolder;
