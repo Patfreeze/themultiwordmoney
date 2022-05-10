@@ -10,3 +10,6 @@ group:
     - world
     - world_nether
     - world_the_end
+groupinfo:
+  default:
+    startingbalance: 0.0

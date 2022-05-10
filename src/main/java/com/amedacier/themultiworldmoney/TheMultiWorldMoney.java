@@ -22,7 +22,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
-import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -39,6 +38,14 @@ import java.util.logging.Logger;
 public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     static String sTimezone = "America/New_York";
+
+    // 2.2.2
+    /*
+    // - Correction of some text but sorry guys not my first language, I don't want to go to over all the spaghetti code to refactoring yet.
+    // - Correction when nothing need to be update but version not update itself
+    // - Create a starting balance when player first join a group of world (configurable) when create a group
+    // - Edit the starting balance of a group in-game also
+     */
 
     // 2.2.1
     /*
@@ -113,11 +120,25 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     private File configf, dataFilef, baltopf;
     private FileConfiguration config, dataFile, configBaltop;
 
+    private static final String CONFIG_SEPARATOR = "###################################################################################";
+
+    private Long extractLong(String s) {
+        String num = s.replaceAll("\\D", "");
+
+        if(num.isEmpty()) {
+            return Long.parseLong("0");
+        }
+        else {
+            return Long.parseLong(num)*100; // to include decimal
+        }
+    }
+
     private void createFiles() throws InvalidConfigurationException {
 
         configf = new File(getDataFolder(), "config.yml");
         dataFilef = new File(getDataFolder(), "data.yml");
         baltopf = new File(getDataFolder(), "baltop.yml");
+        ArrayList<String> a_sComments = new ArrayList<String>();
 
         if (!configf.exists()) {
             configf.getParentFile().mkdirs();
@@ -155,18 +176,47 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         if(!config.isSet("newWorldInDefault")) {
             config.set("newWorldInDefault", true);
         }
+        a_sComments = new ArrayList<String>();
+        a_sComments.add(CONFIG_SEPARATOR);
+        a_sComments.add("If true this will add all new world not listed in Default group");
+        a_sComments.add("If false this will create a new group with only this world in this group");
+        a_sComments.add(CONFIG_SEPARATOR);
+        config.setComments("newWorldInDefault", a_sComments);
+
 
         // Added in v2.0.0
         if(!config.isSet("baltopdelay")) {
             config.set("baltopdelay", 20);
             isNeedUpdate = true;
         }
+        a_sComments = new ArrayList<String>();
+        a_sComments.add(CONFIG_SEPARATOR);
+        a_sComments.add("Delay in second to refresh the baltop !!! WARNING more the number is lower than 20sec");
+        a_sComments.add("more the server will calculate the baltop and can be slower");
+        a_sComments.add(CONFIG_SEPARATOR);
+       config.setComments("baltopdelay", a_sComments);
+
+        if(!config.getString("version").equalsIgnoreCase(sVersion)) {
+            isNeedUpdate = true;
+        }
 
         // Added in v2.2.0
+        /*
         if(!config.isSet("namedatabase") || !config.isSet("userdatabase") || !config.isSet("passworddatabase")) {
             config.set("namedatabase", "");
             config.set("userdatabase", "");
             config.set("passworddatabase", "");
+            isNeedUpdate = true;
+        }
+        */
+
+        // Unused in v2.2.2 - Not implemented yet
+        if(config.isSet("namedatabase") || config.isSet("userdatabase") || config.isSet("passworddatabase")) {
+            a_sComments = new ArrayList<String>();
+            a_sComments.add(CONFIG_SEPARATOR);
+            a_sComments.add("NOT IMPLEMENTED YET...");
+            a_sComments.add(CONFIG_SEPARATOR);
+            config.setComments("namedatabase", a_sComments);
             isNeedUpdate = true;
         }
 
@@ -196,8 +246,24 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             e.printStackTrace();
         }
 
+        updateDataIfNeeded();
+
         try {
             configBaltop.load(baltopf);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void updateDataIfNeeded() {
+        for(String sGroup : dataFile.getConfigurationSection("group").getKeys(false)){
+            if(!dataFile.isSet("groupinfo."+sGroup)) {
+                dataFile.set("groupinfo."+sGroup+".startingbalance", 0.0);
+            }
+        }
+
+        try {
+            dataFile.save(dataFilef);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -239,7 +305,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             case "admin": // OP ADMIN
                 return bAdmin;
             default:
-                System.console().printf("%s is not define in permission", sType);
+                System.console().printf("%s is not defined in permission", sType);
                 return false;
         }
     }
@@ -393,8 +459,6 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     private List<String> reorderArray(List<String> strings) {
 
-        //List<String> strings = Arrays.asList("Patfreeze:8098.00","Yoil:8098.01","Drake:898.00","Yaya:98.00","LittlePooky:18098.00","LittleLolo:8098.00");
-
         Collections.sort(strings, new Comparator<String>() {
             public int compare(String o1, String o2) {
                 return extractLong(o2) > extractLong(o1) ? 1 : -1;
@@ -417,7 +481,6 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable(){
-
 
         TheMultiWorldMoney _this = this;
 
@@ -456,6 +519,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                 LOG.info(ANSI_GREEN+"-------------------------------------------"+ANSI_RESET);
 
                 // Now check if version in config file is OK
+                // Seens this must be update it self this check will be useless
                 if(!config.isString("version")) {
                     LOG.info(ANSI_RED+"ALERT ALERT ALERT ALERT ALERT ALERT ALERT ALERT ALERT ALERT "+ANSI_RESET);
                     LOG.info(ANSI_RED+"ALERT ALERT ALERT ALERT ALERT ALERT ALERT ALERT ALERT ALERT "+ANSI_RESET);
@@ -581,7 +645,13 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
         double dAmount = 0.0;
         if(!config.isSet("Player."+sGroup)){
-            config.set("Player."+sGroup, 0f);
+
+            // Group not set, we take amount from config
+            dAmount = 0f;
+            if(dataFile.isSet("groupinfo."+sGroup+".startingbalance")) {
+                dAmount = dataFile.getDouble("groupinfo."+sGroup+".startingbalance");
+            }
+            config.set("Player."+sGroup, dAmount);
 
             try {
                 config.save(file);
@@ -727,9 +797,75 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     }
 
-    public boolean addNewGroup(String sGroup) {
+    public boolean addNewGroup(CommandSender sender, String sGroup, String sAmount) {
         dataFile.getConfigurationSection("group").createSection(sGroup);
 
+        // Check if the string is an amount
+        Double iAmount = 0.0;
+        try {
+            iAmount = Double.parseDouble(sAmount);
+            sender.sendMessage(iAmount+"");
+        }
+        catch(NumberFormatException e) {
+            sender.sendMessage(sPluginName);
+            sender.sendMessage(sErrorColor+"This is not an amount '"+sAmount+"'! Example: 2500 or 1535.25");
+            return false;
+        }
+        catch(NullPointerException e) {
+            sender.sendMessage(sPluginName);
+            sender.sendMessage(sErrorColor+"This is not an amount '"+sAmount+"'! Example: 2500 or 1535.25");
+            return false;
+        }
+
+        // Pass all test, update value
+        dataFile.set("groupinfo."+sGroup+".startingbalance", iAmount);
+
+        try {
+            dataFile.save(dataFilef);
+            return true;
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public boolean setGroupAmount(CommandSender sender, String sGroup, String sAmount) {
+
+        // CHECK if group exist first
+        boolean bGroupExist = false;
+        for(String sGroupCheck : dataFile.getConfigurationSection("group").getKeys(false)){
+            if(sGroupCheck.toLowerCase().equalsIgnoreCase(sGroup)) {
+                bGroupExist = true;
+                break;
+            }
+        }
+
+        if(!bGroupExist) {
+          sender.sendMessage(sPluginName);
+          sender.sendMessage(sErrorColor+"No group '"+sGroup+"' found...");
+          return false;
+        }
+
+        // Check if the string is an amount
+        Double iAmount = 0.0;
+        try {
+            iAmount = Double.parseDouble(sAmount);
+            sender.sendMessage(iAmount+"");
+        }
+        catch(NumberFormatException e) {
+            sender.sendMessage(sPluginName);
+            sender.sendMessage(sErrorColor+"This is not an amount '"+sAmount+"'! Example: 2500 or 1535.25");
+            return false;
+        }
+        catch(NullPointerException e) {
+            sender.sendMessage(sPluginName);
+            sender.sendMessage(sErrorColor+"This is not an amount '"+sAmount+"'! Example: 2500 or 1535.25");
+            return false;
+        }
+
+        // Pass all test, update value
+        dataFile.set("groupinfo."+sGroup+".startingbalance", iAmount);
         try {
             dataFile.save(dataFilef);
             return true;
@@ -737,7 +873,6 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             e.printStackTrace();
             return false;
         }
-
     }
 
     private boolean deleteGroup(String sGroup, CommandSender sender) {
@@ -755,7 +890,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         try {
             dataFile.save(dataFilef);
             sender.sendMessage(sPluginName);
-            sender.sendMessage(sObjectColor+"{"+sErrorColor+sGroup+sObjectColor+"} is deleted. All world is now in default");
+            sender.sendMessage(sObjectColor+"{"+sErrorColor+sGroup+sObjectColor+"} was deleted. All world is now in default");
             return true;
         } catch (IOException e) {
             e.printStackTrace();
@@ -791,7 +926,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
         if(!bGroupExist) {
             sender.sendMessage(sPluginName);
-            sender.sendMessage(sErrorColor+sGroupTo+" is not exist you need to add it first");
+            sender.sendMessage(sErrorColor+sGroupTo+" does not exist, you need to add it first");
             return false;
         }
 
@@ -988,7 +1123,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         EconomyResponse r = econ.withdrawPlayer(playerDonator,iAmount);
         if(r.transactionSuccess()) {} else {
             playerDonator.sendMessage(sPluginName);
-            playerDonator.sendMessage("Transaction failed sorry as an OP to check console!");
+            playerDonator.sendMessage("Transaction failed sorry ask an OP to check console!");
             LOG.info(String.format("An error occured: %s", r.errorMessage));
             bWithdrawOK = false;
         }
@@ -999,14 +1134,14 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             if (r.transactionSuccess()) {
             } else {
                 playerDonator.sendMessage(sPluginName);
-                playerDonator.sendMessage("Transaction failed sorry as an OP to check console!");
+                playerDonator.sendMessage("Transaction failed sorry ask an OP to check console!");
                 LOG.info(String.format("An error occured: %s", r.errorMessage));
             }
         }
 
         // Send Message to both if Eco was successful if ECO was not send is own message
         playerDonator.sendMessage(sPluginName);
-        playerDonator.sendMessage("You pay §a-$"+iAmount+"§r to §a"+playerName+"§r!"); // But amount -
+        playerDonator.sendMessage("You paid §a-$"+iAmount+"§r to §a"+playerName+"§r!"); // But amount -
 
         playerReceive.sendMessage(sPluginName);
         playerReceive.sendMessage("Thanks to §a"+playerDonator.getName()+"§r that give you §a$"+iAmount+".00 §r!"); // But amount +
@@ -1249,7 +1384,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                             if(!bConsoleOrOP) {
                                 // SEND MESSAGE NO OP
                                 sender.sendMessage(sPluginName);
-                                sender.sendMessage(sErrorColor+"You dont have the permission for that!");
+                                sender.sendMessage(sErrorColor+"You don't have the permission for that!");
                                 return true;
                             }
 
@@ -1345,7 +1480,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                                             }
                                             else {
                                                 sender.sendMessage(sPluginName);
-                                                sender.sendMessage(sErrorColor+"Group ["+arg2+"] not found - case sentitive or player not visited yet");
+                                                sender.sendMessage(sErrorColor+"Group ["+arg2+"] not found - case sensitive or player not visited yet");
                                             }
                                             return true;
                                     }
@@ -1396,15 +1531,41 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                                 case "add":
                                     if(sender.isOp()) {
                                         // Add new group
-                                        if(args.length > 2) {
-                                            if(addNewGroup(args[2])) {
+                                        if(args.length > 3) {
+                                            if(addNewGroup(sender, args[2], args[3])) {
                                                 sender.sendMessage(sPluginName);
-                                                sender.sendMessage(sObjectColor+"Group {"+sErrorColor+args[2]+sObjectColor+"} added");
+                                                sender.sendMessage(sObjectColor+"Group {"+sErrorColor+args[2]+sObjectColor+"} added with a starting balance of "+sErrorColor+args[3]);
+                                            }
+                                        }
+                                        else if(args.length > 2) {
+                                            if(addNewGroup(sender, args[2], "0.0")) {
+                                                sender.sendMessage(sPluginName);
+                                                sender.sendMessage(sObjectColor+"Group {"+sErrorColor+args[2]+sObjectColor+"} added with a starting balance of "+sErrorColor+"0.00");
                                             }
                                         }
                                         else {
                                             sender.sendMessage(sPluginName);
-                                            sender.sendMessage(sObjectColor+sStartLine+" add [GROUPNAME]");
+                                            sender.sendMessage(sObjectColor+sStartLine+" add [GROUPNAME] [STARTING AMOUNT]");
+                                        }
+                                    }
+                                    else {
+                                        sender.sendMessage(sPluginName);
+                                        sender.sendMessage(sErrorColor+"Need OP permission");
+                                    }
+                                    return true;
+
+                                case "setamount":
+                                    if(sender.isOp()) {
+                                        // Add new group
+                                        if(args.length > 3) {
+                                            if(setGroupAmount(sender, args[2], args[3])) {
+                                                sender.sendMessage(sPluginName);
+                                                sender.sendMessage(sObjectColor+"Group {"+sErrorColor+args[2]+sObjectColor+"} set amount to "+args[3]);
+                                            }
+                                        }
+                                        else {
+                                            sender.sendMessage(sPluginName);
+                                            sender.sendMessage(sObjectColor+sStartLine+" setamount [GROUPNAME] [STARTING_AMOUNT]");
                                         }
                                     }
                                     else {

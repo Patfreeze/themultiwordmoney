@@ -144,7 +144,7 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
 
                             case "group": // second list
 
-                                String[] a_sGroupOption = {"add","delete","move","list"};
+                                String[] a_sGroupOption = {"add","delete","list","move","setamount"};
 
                                 for(String sGroupOption : a_sGroupOption) {
                                     if(args[1].equalsIgnoreCase("") || sGroupOption.startsWith(args[1]) || sGroupOption.toLowerCase().startsWith(args[1])) {
@@ -217,12 +217,37 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
                                         }
                                         break;
 
+                                    case "setamount":
+
+                                        for(String sGroup : dataFile.getConfigurationSection("group").getKeys(false)){
+                                            a_groupList.add(sGroup);
+                                        }
+
+                                        for(String sGroupOption : a_groupList) {
+                                            if(args[2].equalsIgnoreCase("") || sGroupOption.startsWith(args[2]) || sGroupOption.toLowerCase().startsWith(args[2])) {
+                                                list.add(sGroupOption);
+                                            }
+                                        }
+                                        break;
+
                                     case "move":
                                         // list of world
                                         for(World world : Bukkit.getServer().getWorlds()){
                                             String sWorldName = world.getName();
                                             if(args[2].equalsIgnoreCase("") || sWorldName.toLowerCase().startsWith(args[2].toLowerCase()) || sWorldName.toLowerCase().startsWith(args[2])) {
                                                 list.add(sWorldName);
+                                            }
+                                        }
+                                        break;
+
+                                    case "add":
+                                        // list of world
+                                        a_groupList.add("Creative");
+                                        a_groupList.add("Prison");
+                                        a_groupList.add("ForFun");
+                                        for(String lister : a_groupList) {
+                                            if (args[2].equalsIgnoreCase("")) { //  || lister.toLowerCase().startsWith(args[2].toLowerCase()) || lister.toLowerCase().startsWith(args[2])
+                                                list.add(lister);
                                             }
                                         }
                                         break;
@@ -266,6 +291,13 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
                                                 list.add(sGroupOption);
                                             }
                                         }
+                                        break;
+
+                                    case "add":
+                                        // list of world
+                                        list.add("0.00");
+                                        list.add("10.00");
+                                        list.add("100.00");
                                         break;
 
                                     default:
