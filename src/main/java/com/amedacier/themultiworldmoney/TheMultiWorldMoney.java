@@ -40,11 +40,20 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     static String sTimezone = "America/New_York";
 
+    // 2.2.6
+    /*
+        - Update for MC1.19
+        - Bug fixed - The amount player to player was in Int now is Double
+        - Bug fixed - Translation when moving a world to a new group
+        - Bug fixed - Translation when there are no value to replace
+        - Bug fixed - When player first join the default balance of default was not given
+     */
+
     // 2.2.5
     /*
-        - Bug fixed that console have no permission :O
-        - Bug fixed that admin have the permission to do something
-        - Adding log to console when another plugin excute commands
+        - Bug fixed that console has no permission :O
+        - Bug fixed that admin has the permission to do something
+        - Adding log to console when another plugin execute commands
     */
 
     // 2.2.4
@@ -154,22 +163,6 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         }
     }
 
-    /* // Need to be test and its not in this plugin lol
-    public static String convertCyrilic(String message){
-        char[] abcCyr =   {' ','а','б','в','г','д','ѓ','е', 'ж','з','ѕ','и','ј','к','л','љ','м','н','њ','о','п','р','с','т', 'ќ','у', 'ф','х','ц','ч','џ','ш', 'А','Б','В','Г','Д','Ѓ','Е', 'Ж','З','Ѕ','И','Ј','К','Л','Љ','М','Н','Њ','О','П','Р','С','Т', 'Ќ', 'У','Ф', 'Х','Ц','Ч','Џ','Ш','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','1','2','3','4','5','6','7','8','9','/','-'};
-        String[] abcLat = {" ","a","b","v","g","d","]","e","zh","z","y","i","j","k","l","q","m","n","w","o","p","r","s","t","'","u","f","h", "c",";", "x","{","A","B","V","G","D","}","E","Zh","Z","Y","I","J","K","L","Q","M","N","W","O","P","R","S","T","KJ","U","F","H", "C",":", "X","{", "a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","1","2","3","4","5","6","7","8","9","/","-"};
-        StringBuilder builder = new StringBuilder();
-        for (int i = 0; i < message.length(); i++) {
-            for (int x = 0; x < abcCyr.length; x++ ) {
-                if (message.charAt(i) == abcCyr[x]) {
-                    builder.append(abcLat[x]);
-                }
-            }
-        }
-        return builder.toString();
-    }
-    */
-
     private void messageToConsole(String sKeyMessage, String sWordReplace) {
 
         List<String> a_sWordReplace = new ArrayList<String>();
@@ -210,11 +203,13 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         //for supporting colors we need to convert all &1 to §1 - &2 to §2 etc... Maybe later :)
 
         // Wish a better way to do this :( For each %s we replace for the word to replace
-        for(String sReplace : a_sWordReplace) {
-            if(sReplace != null) {
-                sOutput = sOutput.replaceFirst("%s", sReplace);
-            }
+        if(a_sWordReplace.size() > 0) {
+            for (String sReplace : a_sWordReplace) {
+                if (sReplace != null) {
+                    sOutput = sOutput.replaceFirst("%s", sReplace);
+                }
 
+            }
         }
         player.sendMessage(sColor+sOutput);
     }
@@ -321,7 +316,6 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         dataFile = new YamlConfiguration();
         configBaltop = new YamlConfiguration();
         configDefaultLang = new YamlConfiguration();
-
 
         // LOADING CONFIG FIRST
         try {
@@ -594,7 +588,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                     // Load group
                     if(config.isSet("Player."+sGroupy)){
                         max = max + config.getDouble("Player."+sGroupy);
-                        String moneyString = NumberFormat.getCurrencyInstance(new Locale("en", "US")).format(config.getDouble("Player."+sGroupy));
+                        String moneyString = econ.format(config.getDouble("Player."+sGroupy));
                         myList.add(offlinePlayer.getName()+": "+moneyString);
                     }
                     // On re-save le resultat
@@ -643,7 +637,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         }
         else {
             // Affiche total de tous
-            String moneyString = NumberFormat.getCurrencyInstance(new Locale("en", "US")).format(configBaltop.getDouble("max."+sGroup));
+            String moneyString = econ.format(configBaltop.getDouble("max."+sGroup));
             sReturn = sErrorColor+"Total: "+moneyString+"\n§r"+sReturn;
 
             sReturn = sReturn + sObjectColor+"Next page\n/tmwm baltop "+sGroup+" "+(iPage+2)+"\n";
@@ -920,10 +914,16 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                 e.printStackTrace();
             }
 
+            // we take the default from the config amount
+            double dAmount = 0f;
+            if(dataFile.isSet("groupinfo.default.startingbalance")) {
+                dAmount = dataFile.getDouble("groupinfo.default.startingbalance");
+            }
+
             config = YamlConfiguration.loadConfiguration(file);
             config.set("Player.Name", player.getName());
             config.set("Player.LastConnection", ""+returnDateHour());
-            config.set("Player.default", (double) econ.getBalance(player));
+            config.set("Player.default", dAmount);
 
             // clear money before loading amount
             clearMoneyPlayer(player);
@@ -955,10 +955,16 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                 e.printStackTrace();
             }
 
+            // we take the default from the config amount
+            double dAmount = 0f;
+            if(dataFile.isSet("groupinfo.default.startingbalance")) {
+                dAmount = dataFile.getDouble("groupinfo.default.startingbalance");
+            }
+
             config = YamlConfiguration.loadConfiguration(file);
             config.set("Player.Name", player.getName());
             config.set("Player.LastConnection", ""+returnDateHour());
-            config.set("Player.default", (double) econ.getBalance(player));
+            config.set("Player.default", dAmount);
 
             // clear money before loading amount
             if(!bIgnoreLoad) {
@@ -1029,6 +1035,10 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     }
 
     public boolean addNewGroup(CommandSender sender, String sGroup, String sAmount) {
+
+        // Due to case sensitive in file we lower case groups
+        sGroup = sGroup.toLowerCase();
+
         dataFile.getConfigurationSection("group").createSection(sGroup);
 
         // Check if the string is an amount
@@ -1191,7 +1201,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             List<String> a_sReplace = new ArrayList<String>();
             a_sReplace.add(sErrorColor+sWorldMove+sObjectColor);
             a_sReplace.add(sErrorColor+sGroupTo+sObjectColor);
-            sendMessageToPlayer(sender, "worldMoved", sErrorColor, sWorldMove);
+            sendMessageToPlayer(sender, "worldMoved", sErrorColor, a_sReplace);
             return true;
         } catch (IOException e) {
             e.printStackTrace();
@@ -1325,23 +1335,23 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             return;
         }
 
-        // Convert string amount in integer
-        int iAmount = Integer.parseInt(amount);
-        if(iAmount < 1) {
+        // Convert string amount in double
+        Double dAmount = Double.parseDouble(amount);
+        if(dAmount < 0.01) {
             sendMessageToPlayer(playerDonator, "notEnoughAmount", sErrorColor);
             return;
         }
 
         // Check if this player have this amount in his balance
         double iPlayerDonatorBal = econ.getBalance(playerDonator);
-        if(iAmount > iPlayerDonatorBal) {
+        if(dAmount > iPlayerDonatorBal) {
             sendMessageToPlayer(playerDonator, "notEnoughMoney", sErrorColor);
             return;
         }
 
         // Remove from the player the amount
         boolean bWithdrawOK = true;
-        EconomyResponse r = econ.withdrawPlayer(playerDonator,iAmount);
+        EconomyResponse r = econ.withdrawPlayer(playerDonator,dAmount);
         if(r.transactionSuccess()) {} else {
             sendMessageToPlayer(playerDonator, "transactionFailed", sErrorColor);
             LOG.info(String.format("An error occured: %s", r.errorMessage));
@@ -1350,7 +1360,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
         // Give the amount to the new player
         if(bWithdrawOK) {
-            r = econ.depositPlayer(playerReceive, iAmount);
+            r = econ.depositPlayer(playerReceive, dAmount);
             if (r.transactionSuccess()) {
             } else {
                 sendMessageToPlayer(playerDonator, "transactionFailed", sErrorColor);
@@ -1360,7 +1370,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
         // Send Message to both if Eco was successful if ECO was not send is own message
         List<String> a_sReplace = new ArrayList<String>();
-        a_sReplace.add("§a-$"+iAmount+"§r");
+        a_sReplace.add("§a-"+econ.format(dAmount).replaceAll("[^\\d.]", "")+"§r");
         a_sReplace.add("§a"+playerName+"§r");
 
         // Donator message
@@ -1368,10 +1378,10 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
         a_sReplace.clear();
         a_sReplace.add("§a"+playerDonator.getName()+"§r");
-        a_sReplace.add("§a$"+iAmount+".00 §r");
+        a_sReplace.add("§a"+econ.format(dAmount).replaceAll("[^\\d.]", "")+" §r");
 
         // Receiver message
-        sendMessageToPlayer(playerReceive, "paidFrom", sErrorColor, a_sReplace);
+        sendMessageToPlayer(playerReceive, "paidFrom", "", a_sReplace);
     }
 
     // Ratio killed vs killer
@@ -1634,8 +1644,13 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
                             boolean bGetOne = false;
                             for(OfflinePlayer offlinePlayer : Bukkit.getOfflinePlayers()) {
-                                if(offlinePlayer.getName().equalsIgnoreCase(arg1)) {
-                                    // Found player Return what we looking for
+                                if(
+                                        offlinePlayer != null &&
+                                        offlinePlayer.getName() != null &&
+                                        offlinePlayer.getName().equalsIgnoreCase(arg1)
+                                ) {
+                                    // Found player Return what we are looking for
+                                    String offlinePlayerName = offlinePlayer.getName();
 
                                     File file = getFileMoneyPlayerPerGroup(offlinePlayer, false);
                                     FileConfiguration config = YamlConfiguration.loadConfiguration(file);
@@ -1691,7 +1706,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                                                         loadMoneyPlayerPerGroup(offlinePlayer, args[2]);
 
                                                         List<String> a_sReplace = new ArrayList<String>();
-                                                        a_sReplace.add(args[1]+sCorrectColor);
+                                                        a_sReplace.add(offlinePlayerName+sCorrectColor);
                                                         a_sReplace.add(sErrorColor+dTotal+sCorrectColor);
                                                         a_sReplace.add(sErrorColor+args[2]);
 
@@ -1704,7 +1719,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                                                         loadMoneyPlayerPerGroup(offlinePlayer, args[2]);
 
                                                         a_sReplace = new ArrayList<String>();
-                                                        a_sReplace.add(args[1]+sCorrectColor);
+                                                        a_sReplace.add(offlinePlayerName+sCorrectColor);
                                                         a_sReplace.add(sErrorColor+arg4+sCorrectColor);
                                                         a_sReplace.add(sErrorColor+args[2]);
 
