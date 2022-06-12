@@ -4,10 +4,12 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 import org.bukkit.Bukkit;
 //import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.World;
 import org.bukkit.command.Command;
@@ -31,12 +33,56 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
         this.dataFolder = dataFolder;
     }
 
+
+    //same function in TabCompleter
+    private boolean havePermission(CommandSender sender, String sType) {
+
+        if(sender instanceof Player) {
+            return havePermission((Player) sender, sType);
+        }
+        else if (sender instanceof ConsoleCommandSender) {
+            if(sType.equalsIgnoreCase("console")) {
+                return true;
+            }
+            return false;
+        }
+        return false;
+
+    }
+
+    // Same function in TabCompleter
+    public boolean havePermission(Player p, String sType) {
+
+        boolean bAdmin = (p.isOp() || p.hasPermission("themultiworldmoney.admin"));
+        boolean bMod = (bAdmin || p.hasPermission("themultiworldmoney.mod"));
+
+        boolean bUsePay = (bMod || p.hasPermission("themultiworldmoney.pay"));
+
+        boolean bUsekilledPlayers = (bMod || p.hasPermission("killedplayers.use"));
+
+        switch(sType) {
+            case "normal": // Mean always all players
+                return true;
+            case "killedplayers": // OP ADMIN MOD killedplayers.use
+                return bUsekilledPlayers;
+            case "pay": // OP ADMIN MOD PAY
+                return bUsePay;
+            case "mod": // OP ADMIN MOD
+                return bMod;
+            case "admin": // OP ADMIN
+                return bAdmin;
+            default:
+                System.console().printf("%s is not defined in permission", sType);
+                return false;
+        }
+    }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command cmd, String alias, String[] args) {
 
         List<String> list = new ArrayList<>();
 
-        boolean bOP = sender.isOp();
+        boolean bAdmin = havePermission(sender, "admin") || havePermission(sender, "console");
 
         // Allez chercher la liste des groupes
         File dataFilef = new File(dataFolder, "data.yml");
@@ -105,7 +151,7 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
                     /////////////////////////////////////////////
                     case 1: // ARGS[0] HELP GROUP PLAYER
 
-                        if(bOP) {
+                        if(bAdmin) {
                             for(String sLevel : a_sLevel_1_OP) {
                                 if(args[0].equalsIgnoreCase("") || sLevel.startsWith(args[0]) || sLevel.toLowerCase().startsWith(args[0])) {
                                     list.add(sLevel);
@@ -135,16 +181,27 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
                                 return list;
 
                             case "player": // second list
-                                for(OfflinePlayer player : Bukkit.getOfflinePlayers()) {
-                                    if(args[1].equalsIgnoreCase("") || player.getName().startsWith(args[1]) || player.getName().toLowerCase().startsWith(args[1])) {
-                                        list.add(player.getName());
+                                if(bAdmin) {
+                                    for(OfflinePlayer player : Bukkit.getOfflinePlayers()) {
+                                        if(args[1].equalsIgnoreCase("") || player.getName().startsWith(args[1]) || player.getName().toLowerCase().startsWith(args[1])) {
+                                            list.add(player.getName());
+                                        }
                                     }
                                 }
                                 return list;
 
                             case "group": // second list
 
-                                String[] a_sGroupOption = {"add","delete","list","move","setamount"};
+                                List<String> a_sGroupOption = new ArrayList<String>();
+                                a_sGroupOption.add("help");
+                                a_sGroupOption.add("list");
+
+                                if(bAdmin) {
+                                    a_sGroupOption.add("add");
+                                    a_sGroupOption.add("delete");
+                                    a_sGroupOption.add("move");
+                                    a_sGroupOption.add("setamount");
+                                }
 
                                 for(String sGroupOption : a_sGroupOption) {
                                     if(args[1].equalsIgnoreCase("") || sGroupOption.startsWith(args[1]) || sGroupOption.toLowerCase().startsWith(args[1])) {
@@ -187,36 +244,27 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
 
                             case "player": // PARAM 1 FOR 3
 
-                                a_groupList.add("list");
+                                if(bAdmin) {
+                                    a_groupList.add("list");
 
-                                for(String sGroup : dataFile.getConfigurationSection("group").getKeys(false)){
-                                    a_groupList.add(sGroup);
-                                }
-
-                                for(String sGroupOption : a_groupList) {
-                                    if(args[2].equalsIgnoreCase("") || sGroupOption.startsWith(args[2]) || sGroupOption.toLowerCase().startsWith(args[2])) {
-                                        list.add(sGroupOption);
+                                    for (String sGroup : dataFile.getConfigurationSection("group").getKeys(false)) {
+                                        a_groupList.add(sGroup);
                                     }
+
+                                    for (String sGroupOption : a_groupList) {
+                                        if (args[2].equalsIgnoreCase("") || sGroupOption.startsWith(args[2]) || sGroupOption.toLowerCase().startsWith(args[2])) {
+                                            list.add(sGroupOption);
+                                        }
+                                    }
+                                    return list;
                                 }
 
-                                return list;
+                                return null;
 
                             case "group":
 
                                 switch(args[1].toLowerCase()) {
                                     case "delete":
-
-                                        for(String sGroup : dataFile.getConfigurationSection("group").getKeys(false)){
-                                            a_groupList.add(sGroup);
-                                        }
-
-                                        for(String sGroupOption : a_groupList) {
-                                            if(args[2].equalsIgnoreCase("") || sGroupOption.startsWith(args[2]) || sGroupOption.toLowerCase().startsWith(args[2])) {
-                                                list.add(sGroupOption);
-                                            }
-                                        }
-                                        break;
-
                                     case "setamount":
 
                                         for(String sGroup : dataFile.getConfigurationSection("group").getKeys(false)){
@@ -268,10 +316,12 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
 
                             case "player": // PARAM 1 FOR 4
 
-                                String[] a_sGroupOptions = {"Deposit","Withdraw","Set"};
-                                for(String sGroupOption : a_sGroupOptions) {
-                                    if(args[2].equalsIgnoreCase("") || sGroupOption.startsWith(args[3]) || sGroupOption.toLowerCase().startsWith(args[3])) {
-                                        list.add(sGroupOption);
+                                if(bAdmin) {
+                                    String[] a_sGroupOptions = {"Deposit", "Withdraw", "Set"};
+                                    for (String sGroupOption : a_sGroupOptions) {
+                                        if (args[2].equalsIgnoreCase("") || sGroupOption.startsWith(args[3]) || sGroupOption.toLowerCase().startsWith(args[3])) {
+                                            list.add(sGroupOption);
+                                        }
                                     }
                                 }
                                 return list;
