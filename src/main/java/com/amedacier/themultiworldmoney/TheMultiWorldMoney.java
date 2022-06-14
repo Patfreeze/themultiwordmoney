@@ -40,6 +40,17 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     static String sTimezone = "America/New_York";
 
+
+    // 2.2.8
+    /*
+        - Using the Bukkit.getServer.offlinePlayer() instead of directly Bukkit.offlinePlayer()
+     */
+
+    // 2.2.7
+    /*
+        - Attempt to fix a bug with tabs completions problems on some server
+     */
+
     // 2.2.6
     /*
         - Update for MC1.19
@@ -72,7 +83,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     // 2.2.2
     /*
     // - Correction of some text but sorry guys not my first language, I don't want to go to over all the spaghetti code to refactoring yet.
-    // - Correction when nothing need to be update but version not update itself
+    // - Correction when nothing need to be updated but version not update itself
     // - Create a starting balance when player first join a group of world (configurable) when create a group
     // - Edit the starting balance of a group in-game also
      */
@@ -164,6 +175,8 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     }
 
     private void messageToConsole(String sKeyMessage, String sWordReplace) {
+
+
 
         List<String> a_sWordReplace = new ArrayList<String>();
         a_sWordReplace.add(sWordReplace);

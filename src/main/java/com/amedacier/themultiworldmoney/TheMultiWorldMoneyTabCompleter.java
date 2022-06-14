@@ -122,7 +122,11 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
                 switch(args.length) {
                     case 1:
                         // list of player
-                        for(Player player : Bukkit.getOnlinePlayers()) {
+                        if(Bukkit.getServer() == null) {
+                            return null;
+                        }
+
+                        for(Player player : Bukkit.getServer().getOnlinePlayers()) {
                             if(args[0].equalsIgnoreCase("") || player.getName().startsWith(args[0]) || player.getName().toLowerCase().startsWith(args[0])) {
                                 list.add(player.getName());
                             }
@@ -173,20 +177,40 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
                         switch(args[0].toLowerCase()) {
 
                             case "pay": // second list
-                                for(Player player : Bukkit.getOnlinePlayers()) {
-                                    if(args[1].equalsIgnoreCase("") || player.getName().startsWith(args[1]) || player.getName().toLowerCase().startsWith(args[1])) {
+                                if (Bukkit.getServer() == null) {
+                                    return null;
+                                }
+
+                                for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+                                    if (args[1].equalsIgnoreCase("") || player.getName().startsWith(args[1]) || player.getName().toLowerCase().startsWith(args[1])) {
                                         list.add(player.getName());
                                     }
                                 }
                                 return list;
 
                             case "player": // second list
+
+                                if (Bukkit.getServer() == null) {
+                                    return null;
+                                }
+
                                 if(bAdmin) {
-                                    for(OfflinePlayer player : Bukkit.getOfflinePlayers()) {
-                                        if(args[1].equalsIgnoreCase("") || player.getName().startsWith(args[1]) || player.getName().toLowerCase().startsWith(args[1])) {
-                                            list.add(player.getName());
+                                    for(OfflinePlayer player : Bukkit.getServer().getOfflinePlayers()) {
+                                        String playerName = null;
+                                        if(player != null) {
+                                            playerName = player.getName();
+                                            if(playerName == null && player.getPlayer() != null) {
+                                                playerName = player.getPlayer().getName();
+                                            }
+
+                                            if(playerName != null && (args[1].equalsIgnoreCase("") || playerName.startsWith(args[1]) || playerName.toLowerCase().startsWith(args[1]))) {
+                                                list.add(playerName);
+                                            }
                                         }
                                     }
+                                }
+                                if(list.isEmpty()) {
+                                    return null;
                                 }
                                 return list;
 
@@ -235,12 +259,13 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
                         switch(args[0].toLowerCase()) {
 
                             case "pay": // amount to player
+                                a_groupList.clear();
 
                                 a_groupList.add("1");
                                 a_groupList.add("10");
                                 a_groupList.add("100");
 
-                                return list;
+                                return a_groupList;
 
                             case "player": // PARAM 1 FOR 3
 

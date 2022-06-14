@@ -1,6 +1,6 @@
 ## CONFIG FOR THE MULTIWORLDMONEY
 ## This file is just a helper file. Nothing will be load from this file
-version: '2.2.2'
+version: '2.2.9'
 
 ## If true this will add all new world not listed in Default group
 ## If false this will create a new group with only this world in this group
