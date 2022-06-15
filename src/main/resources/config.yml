@@ -1,5 +1,5 @@
 ## CONFIG FOR THE MULTIWORLDMONEY
-version: '2.2.9'
+version: '2.3.0'
 newWorldInDefault: true
 baltopdelay: 20
 language: 'en-US'

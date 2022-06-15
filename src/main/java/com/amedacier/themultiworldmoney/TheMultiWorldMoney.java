@@ -299,9 +299,16 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         }
         if (!langDefaultf.exists()) {
             langDefaultf.getParentFile().mkdirs();
+            saveResource("lang"+File.separator+"default.yml", false);
+        }
+        else {
+            LOG.info("Exist so delete we will recreate...");
+            langDefaultf.delete();
+            langDefaultf.getParentFile().mkdirs();
+            saveResource("lang"+File.separator+"default.yml", false);
         }
         // Exist or not we always save the file
-        saveResource("lang"+File.separator+"default.yml", true);
+
 
         configf = new File(getDataFolder(), "config.yml");
         dataFilef = new File(getDataFolder(), "data.yml");
@@ -313,8 +320,6 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             saveResource("config.yml", false);
 
         }
-        // This will always be refresh
-        saveResource("confighelp.yml", true);
 
         if (!dataFilef.exists()) {
             dataFilef.getParentFile().mkdirs();
@@ -538,6 +543,12 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
             List<String> baltopAmount = new ArrayList<String>();
             for(OfflinePlayer player : Bukkit.getOfflinePlayers()) {
+
+                // Dont know why, but can have some ghost offlineplayer. :/
+                if(player == null || player.getName() == null) {
+                    continue;
+                }
+
                 logFirstStart.set("Player."+player.getName()+".getUUID", player.getUniqueId().toString());
                 logFirstStart.set("Player."+player.getName()+".amountVault", (double) econ.getBalance(player));
 
@@ -881,14 +892,18 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             }
             config.set("Player."+sGroup, dAmount);
 
-            try {
-                config.save(file);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
         else {
             dAmount = config.getDouble("Player."+sGroup);
+        }
+
+        // New param so we update every time we load a new group
+        config.set("Player.currentGroup", sGroup);
+
+        try {
+            config.save(file);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
 
         // clear money before loading amount
@@ -1258,7 +1273,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             }
         }
 
-        // Our world is not listed so check if we create a new group of place it in default one
+        // Our world is not listed so check if we create a new group or place it in default one
         if(!bInGroup) {
             addAutomaticNewWorld(world.getName());
         }
@@ -1691,64 +1706,16 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
                                         default:
                                             // We suppose to get a group so check if exist in player file
-                                            if(config.isDouble("Player."+args[2])) {
-
-                                                Double dCurrent = config.getDouble("Player."+args[2]);
-
-                                                arg3 = "";
-                                                Double arg4 = 0.0;
-                                                Double dTotal = 0.0;
-                                                boolean bPass = false;
-                                                if(args.length > 4) {
-                                                    arg3 = args[3].toLowerCase();
-                                                    arg4 = Double.parseDouble(args[4]);
-                                                }
-
-                                                switch(arg3) {
-
-                                                    case "withdraw":
-                                                        dTotal = dCurrent - arg4;
-                                                        bPass = true;
-
-                                                    case "deposit":
-
-                                                        if(!bPass) {
-                                                            dTotal = dCurrent + arg4;
-                                                        }
-                                                        saveMoneyPlayerInGroup(offlinePlayer, args[2], dTotal, false);
-                                                        loadMoneyPlayerPerGroup(offlinePlayer, args[2]);
-
-                                                        List<String> a_sReplace = new ArrayList<String>();
-                                                        a_sReplace.add(offlinePlayerName+sCorrectColor);
-                                                        a_sReplace.add(sErrorColor+dTotal+sCorrectColor);
-                                                        a_sReplace.add(sErrorColor+args[2]);
-
-                                                        sendMessageToPlayer(sender, "haveNow", sErrorColor, a_sReplace);
-                                                        a_sReplace.clear();
-                                                        return true;
-
-                                                    case "set":
-                                                        saveMoneyPlayerInGroup(offlinePlayer, args[2], arg4, false);
-                                                        loadMoneyPlayerPerGroup(offlinePlayer, args[2]);
-
-                                                        a_sReplace = new ArrayList<String>();
-                                                        a_sReplace.add(offlinePlayerName+sCorrectColor);
-                                                        a_sReplace.add(sErrorColor+arg4+sCorrectColor);
-                                                        a_sReplace.add(sErrorColor+args[2]);
-
-                                                        sendMessageToPlayer(sender, "haveNow", sErrorColor, a_sReplace);
-                                                        return true;
-
-                                                    case "":
-                                                    case "help":
-                                                    default:
-                                                        helpMenuPlayer(sender);
-                                                        return true;
-                                                }
+                                            arg3 = "";
+                                            Double arg4 = 0.0;
+                                            Double dTotal = 0.0;
+                                            boolean bPass = false;
+                                            if(args.length > 4) {
+                                                arg3 = args[3].toLowerCase();
+                                                arg4 = Double.parseDouble(args[4]);
                                             }
-                                            else {
-                                                sendMessageToPlayer(sender, "payGroupNotFound", sErrorColor, arg2);
-                                            }
+
+                                            handleGroupTransaction(sender,offlinePlayer, config, args[2], arg3, arg4);
                                             return true;
                                     }
                                 }
@@ -1900,6 +1867,78 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
 
         return false;
+    }
+
+    private void handleGroupTransaction(CommandSender sender, OfflinePlayer offlinePlayer, FileConfiguration config, String sGroupName, String sType, Double dAmount) {
+
+
+        if(!sGroupName.contentEquals("[moneyGroup]") && !config.isDouble("Player."+sGroupName)) {
+            sendMessageToPlayer(sender, "payGroupNotFound", sErrorColor, arg2);
+            return;
+        }
+
+        if(offlinePlayer == null || offlinePlayer.getName() == null) {
+            LOG.info("Player not found...");
+            return;
+        }
+        String offlinePlayerName = offlinePlayer.getName();
+
+        if(sGroupName.contentEquals("[moneyGroup]")) {
+
+            // we check current Group, if player was offline for a while it will be null
+            if(!config.isSet("Player.currentGroup")) {
+                LOG.info("Unable to find the last group of world. "+offlinePlayerName+" is away for a while?");
+                return;
+            }
+            sGroupName = config.getString("Player.currentGroup");
+        }
+
+        Double dCurrent = config.getDouble("Player."+sGroupName);
+
+        Double dTotal = 0.0;
+        boolean bPass = false;
+
+        switch(sType) {
+
+            case "withdraw":
+                dTotal = dCurrent - dAmount;
+                bPass = true;
+
+            case "deposit":
+
+                if(!bPass) {
+                    dTotal = dCurrent + dAmount;
+                }
+                saveMoneyPlayerInGroup(offlinePlayer, sGroupName, dTotal, false);
+                loadMoneyPlayerPerGroup(offlinePlayer, sGroupName);
+
+                List<String> a_sReplace = new ArrayList<String>();
+                a_sReplace.add(offlinePlayerName+sCorrectColor);
+                a_sReplace.add(sErrorColor+dTotal+sCorrectColor);
+                a_sReplace.add(sErrorColor+sGroupName);
+
+                sendMessageToPlayer(sender, "haveNow", sErrorColor, a_sReplace);
+                a_sReplace.clear();
+                return;
+
+            case "set":
+                saveMoneyPlayerInGroup(offlinePlayer, sGroupName, dAmount, false);
+                loadMoneyPlayerPerGroup(offlinePlayer, sGroupName);
+
+                a_sReplace = new ArrayList<String>();
+                a_sReplace.add(offlinePlayerName+sCorrectColor);
+                a_sReplace.add(sErrorColor+dAmount+sCorrectColor);
+                a_sReplace.add(sErrorColor+sGroupName);
+
+                sendMessageToPlayer(sender, "haveNow", sErrorColor, a_sReplace);
+                return;
+
+            case "":
+            case "help":
+            default:
+                helpMenuPlayer(sender);
+                return;
+        }
     }
 
     public static Economy getEconomy() {
