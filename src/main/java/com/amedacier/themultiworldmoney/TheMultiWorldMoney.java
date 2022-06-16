@@ -40,6 +40,17 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     static String sTimezone = "America/New_York";
 
+    // 2.3.0
+    /*
+        - Added the placeholder [moneyGroup] like so /themultiworldmoney player Patfreeze [moneyGroup] Deposit 1
+        This will automatically replace [moneyGroup] by the last group player was after quit or the current group if player is online
+     */
+
+    // 2.2.9
+    /*
+        - Bug fix, some ghost in offlinePlayer() :O
+
+     */
 
     // 2.2.8
     /*
