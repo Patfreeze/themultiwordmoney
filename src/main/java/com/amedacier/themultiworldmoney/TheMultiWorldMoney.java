@@ -40,6 +40,13 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     static String sTimezone = "America/New_York";
 
+    // 2.3.1
+    /*
+        - added the timezone to config
+        - rewrite of the balTop to be more optimize
+        - return the last update in the balTop
+    */
+
     // 2.3.0
     /*
         - Added the placeholder [moneyGroup] like so /themultiworldmoney player Patfreeze [moneyGroup] Deposit 1
@@ -174,6 +181,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     private static final String CONFIG_SEPARATOR = "###################################################################################";
 
+    /*
     private Long extractLong(String s) {
         String num = s.replaceAll("\\D", "");
 
@@ -184,10 +192,9 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             return Long.parseLong(num)*100; // to include decimal
         }
     }
+     */
 
     private void messageToConsole(String sKeyMessage, String sWordReplace) {
-
-
 
         List<String> a_sWordReplace = new ArrayList<String>();
         a_sWordReplace.add(sWordReplace);
@@ -313,7 +320,6 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             saveResource("lang"+File.separator+"default.yml", false);
         }
         else {
-            LOG.info("Exist so delete we will recreate...");
             langDefaultf.delete();
             langDefaultf.getParentFile().mkdirs();
             saveResource("lang"+File.separator+"default.yml", false);
@@ -337,6 +343,12 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             saveResource("data.yml", false);
         }
         if (!baltopf.exists()) {
+            baltopf.getParentFile().mkdirs();
+            saveResource("baltop.yml", false);
+        }
+        else {
+            // Exist so delete and recreate
+            baltopf.delete();
             baltopf.getParentFile().mkdirs();
             saveResource("baltop.yml", false);
         }
@@ -368,15 +380,16 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         config.setComments("newWorldInDefault", a_sComments);
 
 
-        // Added in v2.0.0
+        // Added in v2.0.0 - Removed in 2.3.1
+        /*
         if (!config.isSet("baltopdelay")) {
             config.set("baltopdelay", 20);
             isNeedUpdate = true;
         }
+        */
         a_sComments = new ArrayList<String>();
         a_sComments.add(CONFIG_SEPARATOR);
-        a_sComments.add("Delay in second to refresh the baltop !!! WARNING more the number is lower than 20sec");
-        a_sComments.add("more the server will calculate the baltop and can be slower");
+        a_sComments.add("This config is now useless. But keep it like this. Just in case ;) .");
         a_sComments.add(CONFIG_SEPARATOR);
         config.setComments("baltopdelay", a_sComments);
 
@@ -420,6 +433,18 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         a_sComments.add(CONFIG_SEPARATOR);
         config.setComments("language", a_sComments);
 
+        // Added in v2.3.1
+        if(!config.isSet("sTimezone")) {
+            config.set("sTimezone", sTimezone);
+            isNeedUpdate = true;
+        }
+        a_sComments = new ArrayList<String>();
+        a_sComments.add(CONFIG_SEPARATOR);
+        a_sComments.add("The default TimeZone of the plugin");
+        a_sComments.add("Beware: If not working it will take the GMT by default");
+        a_sComments.add(CONFIG_SEPARATOR);
+        config.setComments("sTimezone", a_sComments);
+
         langf = new File(getDataFolder()+File.separator+"lang", defaultLang+".yml");
         if (!langf.exists()) { // If not exist take the default
             LOG.warning("The file "+defaultLang+".yml not exist, default.yml is loaded...");
@@ -432,9 +457,16 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             e.printStackTrace();
         }
 
-        // Si nous avons un update a faire du fichier
+        // Si nous avons un update à faire du fichier
         if(isNeedUpdate) {
             config.set("version", sVersion);
+            a_sComments = new ArrayList<String>();
+            a_sComments.add(CONFIG_SEPARATOR);
+            a_sComments.add("CONFIG FOR THE MULTIWORLDMONEY");
+            a_sComments.add("This files as an auto update, if a config is missing");
+            a_sComments.add("it will add it by it self with a default value");
+            a_sComments.add(CONFIG_SEPARATOR);
+            config.setComments("version", a_sComments);
 
             // Save file
             try {
@@ -451,6 +483,10 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                 e.printStackTrace();
             }
         }
+
+        // Load the timezone from the file now
+        sTimezone = config.getString("sTimezone");
+
 
         try {
             configDefaultLang.load(langDefaultf);
@@ -552,10 +588,10 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             FileConfiguration logFirstStart = YamlConfiguration.loadConfiguration(logFirstStartf);
             configBaltop = YamlConfiguration.loadConfiguration(baltopf);
 
-            List<String> baltopAmount = new ArrayList<String>();
+            configBaltop.set("default", "");
             for(OfflinePlayer player : Bukkit.getOfflinePlayers()) {
 
-                // Dont know why, but can have some ghost offlineplayer. :/
+                // Don't know why, but can have some ghost offlinePlayer. :/
                 if(player == null || player.getName() == null) {
                     continue;
                 }
@@ -569,13 +605,11 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                 logFirstStart.set("Player."+player.getName()+".amountVault", (double) econ.getBalance(player));
 
                 // Save current money group world
-                baltopAmount.add(player.getName()+": "+econ.getBalance(player));
-                saveMoneyPlayerInGroup(player, "default", econ.getBalance(player), true);
+                double playerBalance = econ.getBalance(player);
+                saveMoneyPlayerInGroup(player, "default", playerBalance, true);
+                configBaltop.set("default."+player.getName(), playerBalance);
             }
-
-            List<String> reordered = reorderArray(baltopAmount);
-            configBaltop.set("lastcall", 0);
-            configBaltop.set("default", "");
+            configBaltop.set("lastcall", returnDateHour());
 
             try {
                 logFirstStart.save(logFirstStartf);
@@ -583,11 +617,55 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            getBalTopList("default", 1);
+        }
+        else {
+            // file exist and baltop was cleaned make async and read all players file?
+            Bukkit.getScheduler().runTaskAsynchronously(this, new Runnable() {
+                @Override
+                public void run() {
+                    for(OfflinePlayer player : Bukkit.getOfflinePlayers()) {
+
+                        // Don't know why, but can have some ghost offlinePlayer. :/
+                        if(player == null || player.getName() == null) {
+                            continue;
+                        }
+
+                        // open
+                        FileConfiguration config = null;
+                        File file = getFileMoneyPlayerPerGroup(player, true);
+                        config = YamlConfiguration.loadConfiguration(file);
+
+                        double dAmount = 0.0;
+
+                        for(String sGroup : dataFile.getConfigurationSection("group").getKeys(false)){
+                            dAmount = config.getDouble("Player."+sGroup);
+                            configBaltop.set(sGroup+"."+player.getName(), econ.format(dAmount));
+                        }
+
+                    }
+                    configBaltop.set("lastcall", returnDateHour());
+
+                    try {
+                        configBaltop.save(baltopf);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
         }
     }
 
     private String getBalTopList(String sGroup, int iPage) {
+
+        try {
+            configBaltop.load(baltopf);
+        } catch (IOException | InvalidConfigurationException e) {
+            e.printStackTrace();
+        }
+        // first check if this group exist
+        if(!configBaltop.isConfigurationSection(sGroup)) {
+            return sErrorColor+"- The group '"+sGroup+"' doesn't exist -";
+        }
 
         // Page 1 sera 0 | 2 sera 1
         iPage = iPage-1;
@@ -595,85 +673,42 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             iPage = 0;
         }
 
-        // Current times in int
-        Calendar cal = Calendar.getInstance();
-
-        // See the last date if we update or not
-        if(cal.getTimeInMillis() - configBaltop.getLong("lastcall") > (config.getInt("baltopdelay")*1000)) {
-
-            // On clean les groupes
-            for(String sGroupy : dataFile.getConfigurationSection("group").getKeys(false)){
-                configBaltop.set(sGroupy, "");
-                configBaltop.set("max."+sGroupy, 0.0);
-            }
-
-            // Reload all files
-            for(OfflinePlayer offlinePlayer : Bukkit.getOfflinePlayers()) {
-                FileConfiguration config = null;
-                File file = getFileMoneyPlayerPerGroup(offlinePlayer, false);
-                config = YamlConfiguration.loadConfiguration(file);
-
-                // loop sur tout les groupes
-                for(String sGroupy : dataFile.getConfigurationSection("group").getKeys(false)){
-
-                    //load le groupes comme une liste
-                    List<String> myList = configBaltop.getStringList(sGroupy);
-                    double max = configBaltop.getDouble("max."+sGroupy);
-
-                    // Load group
-                    if(config.isSet("Player."+sGroupy)){
-                        max = max + config.getDouble("Player."+sGroupy);
-                        String moneyString = econ.format(config.getDouble("Player."+sGroupy));
-                        myList.add(offlinePlayer.getName()+": "+moneyString);
-                    }
-                    // On re-save le resultat
-                    configBaltop.set(sGroupy, myList);
-                    configBaltop.set("max."+sGroupy,max);
-                }
-            }
-
-            // reorder data
-            for(String sGroupy : dataFile.getConfigurationSection("group").getKeys(false)){
-                List<String> myList = configBaltop.getStringList(sGroupy);
-                myList = reorderArray(myList);
-                configBaltop.set(sGroupy, myList);
-            }
-
-            try {
-                configBaltop.set("lastcall", cal.getTimeInMillis());
-                configBaltop.save(baltopf);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        try {
-            configBaltop.load(baltopf);
-        } catch (IOException | InvalidConfigurationException e) {
-            e.printStackTrace();
-        }
-
         String sReturn = "";
         int iCount=1;
 
         // Get the list of the groups (return 10 match) based on iPage
-        List<String> showList = configBaltop.getStringList(sGroup);
+        ArrayList<String> myList = new ArrayList<>();
 
-        for(String playerTop : showList) {
+        double dTotal = 0.0;
+        for(String key : configBaltop.getConfigurationSection(sGroup).getKeys(false)) {
+
+            String num = configBaltop.getString(sGroup+"."+key).replaceAll("\\D", "");
+
+            double playerAmount = 0.0;
+            if(!num.isEmpty()) {
+                playerAmount = Long.parseLong(num);
+            }
+            dTotal += playerAmount;
+
+            myList.add(key+": "+econ.format(playerAmount));
+        }
+        myList = reorderArray(myList);
+
+        for(String playerTop : myList) {
             if(iCount >= (iPage*10+1) && iCount <= (iPage*10+10)) {
                 sReturn = sReturn+iCount+". "+playerTop+"\n";
             }
             iCount++;
         }
 
-        // Si nous avons rien
+        // If we have nothing
         if(sReturn.equalsIgnoreCase("")) {
             sReturn = "- No data for this page -";
         }
         else {
             // Affiche total de tous
-            String moneyString = econ.format(configBaltop.getDouble("max."+sGroup));
-            sReturn = sErrorColor+"Total: "+moneyString+"\n§r"+sReturn;
+            String moneyString = econ.format(dTotal);
+            sReturn = sErrorColor+"Total: "+moneyString+"\n§r"+getTranslatedKeys("lastUpdate")+": "+configBaltop.getString("lastcall")+"\n"+sReturn;
 
             sReturn = sReturn + sObjectColor+"Next page\n/tmwm baltop "+sGroup+" "+(iPage+2)+"\n";
         }
@@ -682,8 +717,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     }
 
-
-    private List<String> reorderArray(List<String> strings) {
+    private ArrayList<String> reorderArray(ArrayList<String> strings) {
 
         Collections.sort(strings, new Comparator<String>() {
             public int compare(String o1, String o2) {
@@ -691,7 +725,12 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             }
 
             Long extractLong(String s) {
-                String num = s.replaceAll("\\D", "");
+
+                String[] a_s = s.split(":");
+                String num = "0";
+                if(a_s.length > 1) {
+                    num = a_s[1].replaceAll("\\D", "");
+                }
 
                 if(num.isEmpty()) {
                     return Long.parseLong("0");
@@ -824,6 +863,30 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         // Load player money from group World
         loadMoneyPlayerPerWorld(player, ""+player.getWorld().getName());
 
+        // Resave the baltop
+        savePlayerBalTopFile(player);
+
+    }
+
+    private void savePlayerBalTopFile(Player player) {
+
+        FileConfiguration config = null;
+        File file = getFileMoneyPlayerPerGroup(player, true);
+        config = YamlConfiguration.loadConfiguration(file);
+
+        double dAmount = 0.0;
+
+        for(String sGroup : dataFile.getConfigurationSection("group").getKeys(false)){
+            dAmount = config.getDouble("Player."+sGroup);
+            configBaltop.set(sGroup+"."+player.getName(), econ.format(dAmount));
+        }
+
+        try {
+            configBaltop.save(baltopf);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 
     @EventHandler
@@ -853,8 +916,6 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         if(r.transactionSuccess()) {} else {
             LOG.info(String.format("An error occured: %s", r.errorMessage));
         }
-
-
     }
 
     public void clearMoneyPlayer(OfflinePlayer player) {
@@ -1030,10 +1091,16 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         File file = getFileMoneyPlayerPerGroup(player);
 
         config = YamlConfiguration.loadConfiguration(file);
-        config.set("Player."+sGroupFrom, (double) econ.getBalance(player));
+        double dAmount = (double) econ.getBalance(player);
+        config.set("Player."+sGroupFrom, dAmount);
+        config.set("Player.LastConnection", returnDateHour());
+
+        // Save bal in the baltop files
+        configBaltop.set(sGroupFrom+"."+player.getName(), econ.format(dAmount));
 
         try {
             config.save(file);
+            configBaltop.save(baltopf);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -1049,12 +1116,15 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         config = YamlConfiguration.loadConfiguration(file);
         config.set("Player."+sGroup, (double) dAmount);
 
+        // Save bal in the baltop files
+        configBaltop.set(sGroup+"."+player.getName(), econ.format((double) dAmount));
+
         try {
             config.save(file);
+            configBaltop.save(baltopf);
         } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
 
     public String getGroupNameByWorld(String sWorldName) {
@@ -1673,7 +1743,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                             }
 
                             // Param for player
-                            switch(arg1) { // This suppose to be playerName
+                            switch(arg1) { // This supposes to be playerName
                                 case "":
                                 case "help":
                                     // HERE WILL BE A SMALL MENU
@@ -1889,7 +1959,6 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         }
 
         if(offlinePlayer == null || offlinePlayer.getName() == null) {
-            LOG.info("Player not found...");
             return;
         }
         String offlinePlayerName = offlinePlayer.getName();
@@ -1973,7 +2042,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         String sHour = String.format("%02d", calendar.get(Calendar.HOUR_OF_DAY));
         String sMinute = String.format("%02d", calendar.get(Calendar.MINUTE));
 
-        String sDate = ""+calendar.get(Calendar.YEAR)+sMonth+sDay+sHour+sMinute;
+        String sDate = ""+calendar.get(Calendar.YEAR)+"-"+sMonth+"-"+sDay+" "+sHour+":"+sMinute;
         return sDate;
 
     }

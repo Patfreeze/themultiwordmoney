@@ -20,3 +20,4 @@ payGroupNotFound: "Groupe {%s} pas trouvé - case sensitive ou le joueur n'a pas
 payPlayerNotFound: "Joueur {%s} non trouvé!"
 groupAdded: "Groupe {%s} ajouté et a une balance de départ de %s"
 groupSetAmount: "Groupe {%s} a maintenant une balance de %s"
+lastUpdate: "Mise à jour"

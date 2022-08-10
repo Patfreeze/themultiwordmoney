@@ -20,3 +20,4 @@ payGroupNotFound: "Group {%s} not found - case sensitive or player not visited y
 payPlayerNotFound: "Player {%s} not found!"
 groupAdded: "Group {%s} has been added with a starting balance of %s"
 groupSetAmount: "Group {%s} set is starting balance to %s"
+lastUpdate: "Last Update"
