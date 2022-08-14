@@ -40,6 +40,11 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     static String sTimezone = "America/New_York";
 
+    // 2.3.2
+    /*
+        - adding soft depend on Essentials
+    */
+
     // 2.3.1
     /*
         - added the timezone to config
@@ -824,7 +829,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     @Override
     public void onDisable(){
-        // save players money
+        // try to save players money
         for(Player player : Bukkit.getOnlinePlayers()) {
             saveMoneyPlayerPerGroup(player, player.getWorld().getName());
         }
