@@ -40,6 +40,11 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     static String sTimezone = "America/New_York";
 
+    // 2.3.3
+    /*
+        - adding auto save (or check all transaction?)
+    */
+
     // 2.3.2
     /*
         - adding soft depend on Essentials
@@ -183,6 +188,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     private File configf, dataFilef, baltopf, langDefaultf, langf;
     private FileConfiguration config, dataFile, configBaltop, configDefaultLang,configLang;
+    private HashMap<UUID, Integer> a_AutoSaveHandler = new HashMap<UUID, Integer>();
 
     private static final String CONFIG_SEPARATOR = "###################################################################################";
 
@@ -446,9 +452,23 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         a_sComments = new ArrayList<String>();
         a_sComments.add(CONFIG_SEPARATOR);
         a_sComments.add("The default TimeZone of the plugin");
-        a_sComments.add("Beware: If not working it will take the GMT by default");
+        a_sComments.add("Warning: If not working it will take the GMT by default");
         a_sComments.add(CONFIG_SEPARATOR);
         config.setComments("sTimezone", a_sComments);
+
+        // Added in v2.3.3
+        if(!config.isSet("iAutoUpdatePlayer")) {
+            config.set("iAutoUpdatePlayer", 10);
+            isNeedUpdate = true;
+        }
+        a_sComments = new ArrayList<String>();
+        a_sComments.add(CONFIG_SEPARATOR);
+        a_sComments.add("This will save balance every x minutes. -1 to disable");
+        a_sComments.add("Suggestion: If you enable put minimum 5. Less than 5,");
+        a_sComments.add("if you have many player, write on disk can do latency");
+        a_sComments.add("This will not affect the logoff or when changing world");
+        a_sComments.add(CONFIG_SEPARATOR);
+        config.setComments("iAutoUpdatePlayer", a_sComments);
 
         langf = new File(getDataFolder()+File.separator+"lang", defaultLang+".yml");
         if (!langf.exists()) { // If not exist take the default
@@ -827,8 +847,31 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     }
 
+    private void cancelPlayerAutoSave(Player player) {
+        if(a_AutoSaveHandler.get(player.getUniqueId()) != null) {
+            Bukkit.getScheduler().cancelTask(a_AutoSaveHandler.get(player.getUniqueId()));
+        }
+    }
+
+    private void handleChangingWorldAutoSave(Player player) {
+        cancelPlayerAutoSave(player);
+        Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+            @Override
+            public void run() {
+                addAutoSave(player);
+            }
+        }, 10);
+
+    }
+
     @Override
     public void onDisable(){
+
+        // Cancel all task
+        for(UUID playerId : a_AutoSaveHandler.keySet()) {
+            Bukkit.getScheduler().cancelTask(a_AutoSaveHandler.get(playerId));
+        }
+
         // try to save players money
         for(Player player : Bukkit.getOnlinePlayers()) {
             saveMoneyPlayerPerGroup(player, player.getWorld().getName());
@@ -840,7 +883,10 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     public void onWorldChange(PlayerChangedWorldEvent e) {
         Player player = (Player) e.getPlayer();
 
-        // First we check if world is in a group
+        // Cancel task autoSave
+        handleChangingWorldAutoSave(player);
+
+        // We check if world is in a group
         checkGroupWorld(player);
 
         // Save player money from last world
@@ -871,6 +917,27 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         // Resave the baltop
         savePlayerBalTopFile(player);
 
+        // if we have times in auto save create it
+        addAutoSave(player);
+
+    }
+
+    private void addAutoSave(Player player) {
+
+        int iAutoUpdatePlayer = config.getInt("iAutoUpdatePlayer");
+
+        if(iAutoUpdatePlayer>0) {
+            int iFistSaveIn = (new Random()).nextInt(7)+iAutoUpdatePlayer;
+            iFistSaveIn = iFistSaveIn * 20;
+
+            int iTask = Bukkit.getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
+                public void run()
+                {
+                    saveMoneyPlayerPerGroup(player, "");
+                }
+            }, iFistSaveIn, iAutoUpdatePlayer*20*60);
+            a_AutoSaveHandler.put(player.getUniqueId(), iTask);
+        }
     }
 
     private void savePlayerBalTopFile(Player player) {
@@ -897,6 +964,10 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent e) {
         Player player = e.getPlayer();
+
+        // remove any a_AutoSaveHandler
+        cancelPlayerAutoSave(player);
+        a_AutoSaveHandler.remove(player.getUniqueId());
 
         // Save current money group world
         saveMoneyPlayerPerGroup(player, player.getWorld().getName());
@@ -945,6 +1016,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         // on reload all player online must load from the file. To bad for losing money
         for(Player player : Bukkit.getOnlinePlayers()) {
             loadMoneyPlayerPerWorld(player, player.getWorld().getName());
+            addAutoSave(player);
         }
     }
 
@@ -1088,6 +1160,11 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     public void saveMoneyPlayerPerGroup(Player player, String sWorld) {
 
+        // find the current world (if empty mean we schedule it)
+        if(sWorld.isEmpty()) {
+            sWorld = player.getWorld().getName();
+        }
+
         // Find our group
         String sGroupFrom = getGroupNameByWorld(sWorld);
 
@@ -1109,7 +1186,6 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
 
     public void saveMoneyPlayerInGroup(OfflinePlayer player, String sGroup, Double dAmount, boolean bIgnoreLoad) {
