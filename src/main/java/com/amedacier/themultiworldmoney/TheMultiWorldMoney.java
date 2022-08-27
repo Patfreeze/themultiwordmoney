@@ -26,6 +26,7 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -40,9 +41,16 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     static String sTimezone = "America/New_York";
 
+    // 2.3.4
+    /*
+      - If enabled, adding delay when restarting the auto-save when changing world
+      - Optimization: When we are in the same group, the plugin only save,
+        not touching the balance of the player
+     */
+
     // 2.3.3
     /*
-        - adding auto save (or check all transaction?)
+        - adding auto save
     */
 
     // 2.3.2
@@ -214,8 +222,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     }
 
     private void messageToConsole(String sKeyMessage) {
-        LOG.info(ChatColor.stripColor(sPluginName));
-        LOG.info(getTranslatedKeys(sKeyMessage));
+        LOG.info(ChatColor.stripColor(sPluginName)+" "+getTranslatedKeys(sKeyMessage));
     }
 
     private void messageToConsole(String sKeyMessage, List<String> a_sWordReplace) {
@@ -336,7 +343,6 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             saveResource("lang"+File.separator+"default.yml", false);
         }
         // Exist or not we always save the file
-
 
         configf = new File(getDataFolder(), "config.yml");
         dataFilef = new File(getDataFolder(), "data.yml");
@@ -464,8 +470,8 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         a_sComments = new ArrayList<String>();
         a_sComments.add(CONFIG_SEPARATOR);
         a_sComments.add("This will save balance every x minutes. -1 to disable");
-        a_sComments.add("Suggestion: If you enable put minimum 5. Less than 5,");
-        a_sComments.add("if you have many player, write on disk can do latency");
+        a_sComments.add("Suggestion: If you enable it put minimum 5. If less");
+        a_sComments.add("than 5, more player you have, more latency can occur");
         a_sComments.add("This will not affect the logoff or when changing world");
         a_sComments.add(CONFIG_SEPARATOR);
         config.setComments("iAutoUpdatePlayer", a_sComments);
@@ -488,8 +494,9 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             a_sComments = new ArrayList<String>();
             a_sComments.add(CONFIG_SEPARATOR);
             a_sComments.add("CONFIG FOR THE MULTIWORLDMONEY");
-            a_sComments.add("This files as an auto update, if a config is missing");
+            a_sComments.add("This files as an auto updater, if a config is missing");
             a_sComments.add("it will add it by it self with a default value");
+            a_sComments.add("No worry, your config is kept.");
             a_sComments.add(CONFIG_SEPARATOR);
             config.setComments("version", a_sComments);
 
@@ -860,7 +867,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             public void run() {
                 addAutoSave(player);
             }
-        }, 10);
+        }, 20*5);
 
     }
 
@@ -892,12 +899,62 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         // Save player money from last world
         saveMoneyPlayerPerGroup(player, e.getFrom().getName());
 
-        // Remove all money
-        clearMoneyPlayer(player);
+        // Check if we are in the same group otherwise clear and load
+        if(!isWorldInSameGroup(e.getFrom().getName(), player.getWorld().getName())) {
+            ////////////////////////////////////////
+            //Not same world we do nothing more
+            ////////////////////////////////////////
 
-        // Load player money from group World
-        loadMoneyPlayerPerWorld(player, player.getWorld().getName());
+            // Remove all money
+            if(clearMoneyPlayer(player)) {
+                // Load player money from group World
+                loadMoneyPlayerPerWorld(player, player.getWorld().getName());
+            }
+            else {
+                // Unable to clear money
+                messageToConsole(player.getName()+" his unable to switch balance between group...");
+                sendMessageToPlayer(player, getTranslatedKeys("somethingWrongHappen"), sErrorColor);
+            }
+        }
 
+    }
+
+    /**
+     * Return true if the 2 worlds is in the same group
+     * @param world1
+     * @param world2
+     * @return
+     */
+    private boolean isWorldInSameGroup(String world1, String world2) {
+
+        String sGroupWorld1 = null;
+        String sGroupWorld2 = null;
+
+        // Check if this new world are listed or not
+        for(String sGroup : dataFile.getConfigurationSection("group").getKeys(false)){
+            for(String sWorld : dataFile.getStringList("group."+sGroup)) {
+                if(sWorld.equalsIgnoreCase(world1.toLowerCase())) {
+                    // We found the group world1
+                    sGroupWorld1 = sGroup;
+                }
+                if(sWorld.equalsIgnoreCase(world2.toLowerCase())) {
+                    // We found the group world1
+                    sGroupWorld2 = sGroup;
+                }
+
+                // if we have our two group exit the loop
+                if(sGroupWorld1 != null && sGroupWorld2 != null) {
+                    break; // optimization
+                }
+            }
+
+            // if we have our two group exit the loop
+            if(sGroupWorld1 != null && sGroupWorld2 != null) {
+                break; // optimization
+            }
+        }
+
+        return sGroupWorld1 != null && sGroupWorld1.equalsIgnoreCase(sGroupWorld2);
     }
 
     @EventHandler
@@ -917,7 +974,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         // Resave the baltop
         savePlayerBalTopFile(player);
 
-        // if we have times in auto save create it
+        // if we have times in auto-save create it
         addAutoSave(player);
 
     }
@@ -928,7 +985,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
         if(iAutoUpdatePlayer>0) {
             int iFistSaveIn = (new Random()).nextInt(7)+iAutoUpdatePlayer;
-            iFistSaveIn = iFistSaveIn * 20;
+            iFistSaveIn = iFistSaveIn * 20 * 60;
 
             int iTask = Bukkit.getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
                 public void run()
@@ -976,7 +1033,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         clearMoneyPlayer(player);
     }
 
-    public void clearMoneyPlayer(Player player) {
+    public boolean clearMoneyPlayer(Player player) {
 
         // we need to check if we have a negative value here
         EconomyResponse r;
@@ -989,12 +1046,15 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             r = econ.withdrawPlayer(player, econ.getBalance(player));
 
         }
-        if(r.transactionSuccess()) {} else {
-            LOG.info(String.format("An error occured: %s", r.errorMessage));
+        if(r.transactionSuccess()) {
+            return true;
+        } else {
+            LOG.info(String.format("An error occurred: %s", r.errorMessage));
+            return false;
         }
     }
 
-    public void clearMoneyPlayer(OfflinePlayer player) {
+    public boolean clearMoneyPlayer(OfflinePlayer player) {
 
         // we need to check if we have a negative value here
         EconomyResponse r;
@@ -1005,11 +1065,14 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         else {
             // We remove the money back to 0
             r = econ.withdrawPlayer(player, econ.getBalance(player));
+        }
+        if(r.transactionSuccess()) {
+            return true;
+        } else {
+            LOG.info(String.format("An error occurred: %s", r.errorMessage));
+            return false;
+        }
 
-        }
-        if(r.transactionSuccess()) {} else {
-            LOG.info(String.format("An error occured: %s", r.errorMessage));
-        }
     }
 
     private void loadMoneyReload() {
@@ -1056,24 +1119,28 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         }
 
         // clear money before loading amount
-        clearMoneyPlayer(player);
-
-        // Check if is a negative value
-        EconomyResponse r;
-        if(dAmount < 0.0) {
-            // Less we remove
-            r = econ.withdrawPlayer(player, Math.abs(dAmount));
+        if(clearMoneyPlayer(player)) {
+            // Check if is a negative value
+            EconomyResponse r;
+            if(dAmount < 0.0) {
+                // Less we remove
+                r = econ.withdrawPlayer(player, Math.abs(dAmount));
+            }
+            else {
+                // More we give the money from Group
+                r = econ.depositPlayer(player, dAmount);
+            }
+            if(r.transactionSuccess()) {} else {
+                LOG.info(String.format("An error occured: %s", r.errorMessage));
+            }
         }
         else {
-            // More we give the money from Group
-            r = econ.depositPlayer(player, dAmount);
-        }
-        if(r.transactionSuccess()) {} else {
-            LOG.info(String.format("An error occured: %s", r.errorMessage));
+            LOG.info("unable to clear money from player '"+player.getName()+"'");
         }
 
 
     }
+
     /** Copy in the save function below **/
     /** Copy in the save function below **/
     /** Copy in the save function below **/
