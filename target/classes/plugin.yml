@@ -11,7 +11,7 @@
 
   main: com.amedacier.themultiworldmoney.TheMultiWorldMoney
   database: false
-  depend: [Vault, Essentials]
+  depend: [Vault, Essentials, ProtocolLib]
   softdepend: []
 
   commands:

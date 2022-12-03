@@ -5,37 +5,40 @@ import net.milkbowl.vault.chat.Chat;
 import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
 import net.milkbowl.vault.permission.Permission;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.OfflinePlayer;
-import org.bukkit.World;
+import org.bukkit.*;
+import org.bukkit.block.Barrel;
+import org.bukkit.block.Sign;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Player;
-import org.bukkit.entity.Projectile;
+import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
-import org.bukkit.event.player.PlayerChangedWorldEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
-//import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.player.*;
+
+import org.bukkit.inventory.ItemStack;
+
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.text.DecimalFormat;
-//import java.text.NumberFormat;
+
 import java.util.*;
 import java.io.File;
 import java.io.IOException;
+import java.util.function.Predicate;
 import java.util.logging.Logger;
 
 public class TheMultiWorldMoney extends JavaPlugin implements Listener {
@@ -47,127 +50,13 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         - Force EssentialX to hook on event UserBalanceUpdateEvent to update the balance in the good group (player offline)
         With this event, no need anymore the auto-save.
         - Removing the auto-save, useless now
+        - Adding SHOP admin
+        - TODO: Adding AuctionHouse to sell/buy stuff player (will need to pass groupWorld)
         - TODO: Check for transaction... Seems we made 3 transactions on changing world...
 
      */
 
-    // 2.3.4
-    /*
-      - If enabled, adding delay when restarting the auto-save when changing world
-      - Optimization: When we are in the same group, the plugin only save,
-        not touching the balance of the player
-     */
-
-    // 2.3.3
-    /*
-        - adding auto save
-    */
-
-    // 2.3.2
-    /*
-        - adding soft depend on Essentials
-    */
-
-    // 2.3.1
-    /*
-        - added the timezone to config
-        - rewrite of the balTop to be more optimize
-        - return the last update in the balTop
-    */
-
-    // 2.3.0
-    /*
-        - Added the placeholder [moneyGroup] like so /themultiworldmoney player Patfreeze [moneyGroup] Deposit 1
-        This will automatically replace [moneyGroup] by the last group player was after quit or the current group if player is online
-     */
-
-    // 2.2.9
-    /*
-        - Bug fix, some ghost in offlinePlayer() :O
-
-     */
-
-    // 2.2.8
-    /*
-        - Using the Bukkit.getServer.offlinePlayer() instead of directly Bukkit.offlinePlayer()
-     */
-
-    // 2.2.7
-    /*
-        - Attempt to fix a bug with tabs completions problems on some server
-     */
-
-    // 2.2.6
-    /*
-        - Update for MC1.19
-        - Bug fixed - The amount player to player was in Int now is Double
-        - Bug fixed - Translation when moving a world to a new group
-        - Bug fixed - Translation when there are no value to replace
-        - Bug fixed - When player first join the default balance of default was not given
-     */
-
-    // 2.2.5
-    /*
-        - Bug fixed that console has no permission :O
-        - Bug fixed that admin has the permission to do something
-        - Adding log to console when another plugin execute commands
-    */
-
-    // 2.2.4
-    /*
-    // - Bug fix from the translated text that output the same value again and again
-     */
-
-    // 2.2.3
-    /*
-    // - Refactoring code to use translate files when sending message to player
-    // - Fix bug when a player have a negative amount
-
-
-     */
-
-    // 2.2.2
-    /*
-    // - Correction of some text but sorry guys not my first language, I don't want to go to over all the spaghetti code to refactoring yet.
-    // - Correction when nothing need to be updated but version not update itself
-    // - Create a starting balance when player first join a group of world (configurable) when create a group
-    // - Edit the starting balance of a group in-game also
-     */
-
-    // 2.2.1
-    /*
-    // - bug fix - returns non-void type org.bukkit.entity.Entity
-     */
-
-    // 2.2.0
-    /*
-    // - Update for 1.18.2
-    // - Extra added /killedplayers [group] to get the rate kills players
-     */
-
-    // 2.1.1
-    /*
-    // - Correction bug about bigInteger vs Integer
-
-     */
-    // 2.1.0
-    /*
-    // - Added the command /payto [name] [amount] alias /thepay /thepayto
-    // - Added also /tmwm pay [name] [amount]
-    //   You will need to remove the permission /pay from your player to not by pass travel money from group
-    // - When plugin is reloaded save all player data
-     */
-
-    //New in 2.0.0 for 1.18 (on spigot)
-    /*
-    // Rewritten code to use Maven
-    // Config.yml auto-update
-    // bug correction on backup vault
-    // bug correction on autocomplete
-    // - Added /themultiworld baltop [group] [page]
-	*/
-
-    // SPIGOT 1.0.5
+    // 2.3.4 lastest
 
     // VAULT
     private static Economy econ = null;
@@ -182,6 +71,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     String sObjectColor = "§a"; // LightGreen
     String sCorrectColor = "§2"; // Green
     String sYellowColor = "§e"; // Yellow
+    String sOrangeColor = "§6"; // Orange
     String sResetColor = "§r";
 
     String sVersion = getDescription().getVersion(); // version in plugin.yml
@@ -191,6 +81,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     String arg2 = "";
     String arg3 = "";
 
+    public static final String barrelShopName = "§9SHOP §5BARREL";
     public static final Logger LOG = Logger.getLogger("Minecraft");
 
     // COLOR FOR COMMAND LINE
@@ -206,8 +97,15 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     //public static final String ANSI_WHITE = "\u001B[37m";
 
     private File configf, dataFilef, baltopf, langDefaultf, langf;
-    private FileConfiguration config, dataFile, configBaltop, configDefaultLang,configLang;
+    private FileConfiguration config;
+    private FileConfiguration dataFile;
+    private FileConfiguration configBaltop;
+    private static FileConfiguration configDefaultLang;
+    private static FileConfiguration configLang;
+    private HashMap<UUID, Integer> a_sTimerShop = new HashMap<UUID, Integer>();
+    private HashMap<Location, Material> a_objShowItemShop = new HashMap<Location, Material>();
     //private HashMap<UUID, Integer> a_AutoSaveHandler = new HashMap<UUID, Integer>();
+    private HashMap<UUID, HandleMessage> a_handleChatMessage = new HashMap<UUID, HandleMessage>();
 
     private static final String CONFIG_SEPARATOR = "###################################################################################";
 
@@ -252,6 +150,40 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
         }
         LOG.info(ChatColor.stripColor(sOutput));
+    }
+
+    private boolean playerHaveSpaceInventory(Player player, ItemStack itemStackCheck, int iQts) {
+
+        int iEmptySpace = 0;
+        int iQtsLeft = iQts; // 64
+        consoleLog("iQtsLeft: "+iQtsLeft);
+        for(ItemStack itemstack : player.getInventory().getContents()) {
+            if(itemstack == null) { // empty slot
+                if(iQtsLeft <= 64 && itemStackCheck.getMaxStackSize() != 1) {
+                    return true; // we have space. Too bad for max stack == 16
+                }
+                iQtsLeft = iQtsLeft - 1;
+                iEmptySpace++;
+            }
+            else if(itemStackCheck.isSimilar(itemstack) && itemstack.getMaxStackSize() != 1) {
+                // ok we have the same items here, so we can at least add one
+                int iRoom = itemstack.getMaxStackSize() - itemstack.getAmount();
+                if(iRoom != 0) {
+                    iQtsLeft = iQtsLeft - iRoom;
+                }
+                if(iQtsLeft < 1) {
+                    return true; // we stack all items no need to go further
+                }
+            }
+        }
+
+        // check again if we have nothing
+        if(iQtsLeft < 1) {
+            return true; // we stack all items no need to go further
+        }
+        consoleLog("iQtsLeft: "+iQtsLeft);
+
+        return false;
     }
 
     private void sendMessageToPlayer(Player player, String sKeyMessage, String sColor, List<String> a_sWordReplace) {
@@ -313,7 +245,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         }
     }
 
-    private String getTranslatedKeys(String sKeyMessage) {
+    public static String getTranslatedKeys(String sKeyMessage) {
 
         //check first if key exist
         if(configLang.isSet(sKeyMessage)) {
@@ -340,19 +272,18 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             langENCAfile.getParentFile().mkdirs();
             saveResource("lang"+File.separator+"en-US.yml", false);
         }
-        if (!langFRCAfile.exists()) {
-            langFRCAfile.getParentFile().mkdirs();
-            saveResource("lang"+File.separator+"fr-CA.yml", false);
+
+        if (langFRCAfile.exists()) {
+            langFRCAfile.delete();
         }
-        if (!langDefaultf.exists()) {
-            langDefaultf.getParentFile().mkdirs();
-            saveResource("lang"+File.separator+"default.yml", false);
-        }
-        else {
+        langFRCAfile.getParentFile().mkdirs();
+        saveResource("lang"+File.separator+"fr-CA.yml", false);
+
+        if (langDefaultf.exists()) {
             langDefaultf.delete();
-            langDefaultf.getParentFile().mkdirs();
-            saveResource("lang"+File.separator+"default.yml", false);
         }
+        langDefaultf.getParentFile().mkdirs();
+        saveResource("lang"+File.separator+"default.yml", false);
         // Exist or not we always save the file
 
         configf = new File(getDataFolder(), "config.yml");
@@ -473,6 +404,18 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         a_sComments.add(CONFIG_SEPARATOR);
         config.setComments("sTimezone", a_sComments);
 
+        // Added in v2.3.5
+        if(!config.isSet("bDebugMode")) {
+            config.set("bDebugMode", false);
+            isNeedUpdate = true;
+        }
+        a_sComments = new ArrayList<String>();
+        a_sComments.add(CONFIG_SEPARATOR);
+        a_sComments.add("This is used to spam to console for debugging. I think you will not need");
+        a_sComments.add("to turn it on. ^_^' ");
+        a_sComments.add(CONFIG_SEPARATOR);
+        config.setComments("bDebugMode", a_sComments);
+
         // Removed in v2.3.5 useless now (hook on EssentialX Economy
         // Added in v2.3.3
         if(config.isSet("iAutoUpdatePlayer")) {
@@ -555,6 +498,13 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         }
     }
 
+    private void consoleLog(String sMessage) {
+
+        if(config.getBoolean("bDebugMode")) {
+            LOG.info("[TMWM] " + sMessage);
+        }
+    }
+
     private void updateDataIfNeeded() {
         for(String sGroup : dataFile.getConfigurationSection("group").getKeys(false)){
             if(!dataFile.isSet("groupinfo."+sGroup)) {
@@ -607,7 +557,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             case "admin": // OP ADMIN
                 return bAdmin;
             default:
-                System.console().printf("%s is not defined in permission", sType);
+                consoleLog(sType+" is not defined in permission");
                 return false;
         }
     }
@@ -790,6 +740,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         return strings;
     }
 
+
     @Override
     public void onEnable(){
 
@@ -896,6 +847,63 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     }
      */
 
+    private int getInvAmountForItems(Player player, ItemStack itemStack, int iMax) {
+
+        int iCount = iMax; // 64
+        for(ItemStack is : player.getInventory().getContents()) {
+
+            if(iCount == 0) {
+                break; // We have reach our limit
+            }
+
+            if(is == null) {
+                continue;
+            }
+
+            // clone of the purpose
+            ItemStack itemCheck = is.clone();
+            itemCheck.setAmount(1);
+            ItemStack shopItemCheck = itemStack.clone();
+            shopItemCheck.setAmount(1);
+
+            if(itemCheck.equals(shopItemCheck)) {
+                // Item is the same (Enchantment and all is metadata)
+                int iItemAmount = is.getAmount(); // 10
+                if(iItemAmount < iCount) {
+                    is.setAmount(0);
+                    iCount = iCount - iItemAmount; // 2
+                }
+                else {
+                    is.setAmount(iItemAmount-iCount);
+                    iCount = 0;
+                }
+            }
+        }
+
+        return iCount;
+    }
+
+    public void showAllArmorStandInvisible(Player player, int iLimit) {
+        Predicate<Entity> filter = new Predicate<Entity>() {
+            @Override
+            public boolean test(Entity entity) {
+                System.out.println("entity.getType(): "+entity.getType());
+                System.out.println("Good type?: "+(entity.getType() == EntityType.ARMOR_STAND));
+                return entity.getType() == EntityType.ARMOR_STAND;
+            }
+        };
+        Collection<Entity> a_Entity = player.getWorld().getNearbyEntities(player.getLocation().add(0, 0, 0), iLimit, iLimit, iLimit, filter);
+        for (Iterator<Entity> it = a_Entity.iterator(); it.hasNext(); ) {
+            ArmorStand ent = (ArmorStand) it.next();
+            ent.setInvulnerable(true);
+            ent.setVisible(true);
+        }
+    }
+
+    public void playDenyShopSound(Player player) {
+        player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.6F, 0.7F);
+    }
+
     @Override
     public void onDisable(){
 
@@ -904,7 +912,6 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         for(UUID playerId : a_AutoSaveHandler.keySet()) {
             Bukkit.getScheduler().cancelTask(a_AutoSaveHandler.get(playerId));
         }
-
          */
 
         // try to save players money
@@ -914,23 +921,622 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         LOG.info(String.format("[%s] Disabled Version %s", getDescription().getName(), getDescription().getVersion()));
     }
 
+
+    @EventHandler
+    // onClickBlock onClickSign
+    public void clickBlock(PlayerInteractEvent e) {
+        Player player = e.getPlayer();
+
+        // Protection if no block clicked just ignore
+        if(e.getClickedBlock() == null) {
+            return;
+        }
+        if(e.getClickedBlock() != null && e.getClickedBlock().getType().name().contains("_SIGN")) {
+
+            Sign signShop = (Sign) e.getClickedBlock().getState();
+            if(ChatColor.stripColor(signShop.getLine(0)).equalsIgnoreCase("[tmwm]") && ChatColor.stripColor(signShop.getLine(1)).equalsIgnoreCase("shop")) {
+                // Left click
+                if (e.getAction() == Action.LEFT_CLICK_BLOCK) {
+                    if (player.getGameMode() == GameMode.CREATIVE && player.getInventory().getItemInMainHand().getType() != Material.STICK) {
+                        e.setCancelled(true);
+                        sendMessageToPlayer(player, getTranslatedKeys("destroyShopStick"), sErrorColor);
+                    } else if (player.getGameMode() == GameMode.CREATIVE && player.getInventory().getItemInMainHand().getType() == Material.STICK) {
+                        sendMessageToPlayer(player, getTranslatedKeys("destroyShop"), sErrorColor);
+                        ShopAdmin shopAdmin = new ShopAdmin(player, getDataFolder(), signShop.getLocation(), true);
+                        shopAdmin.deleteShop();
+                        return; // Nothing more to do
+                    }
+                }
+                openShop(player, e.getClickedBlock().getLocation());
+            }
+            return;
+        }
+
+        // Protection Barrel TODO: remove if sign do the job
+        /*
+        if(e.getClickedBlock().getType() == Material.BARREL) {
+
+            Barrel barrel = (Barrel) e.getClickedBlock().getState();
+
+            // TODO: Check if we have a sign stick on this with the word [tmwm] shop
+
+            //guard if not a shop ignore
+            if(barrel.getCustomName() == null || !barrel.getCustomName().equalsIgnoreCase(barrelShopName)) {
+                return;
+            }
+
+            // Left click
+            if (e.getAction() == Action.LEFT_CLICK_BLOCK) {
+                if(player.getGameMode() == GameMode.CREATIVE && player.getInventory().getItemInMainHand().getType() != Material.STICK) {
+                    e.setCancelled(true);
+                    sendMessageToPlayer(player, getTranslatedKeys("destroyShopStick"), sErrorColor);
+                }
+                else if(player.getGameMode() == GameMode.CREATIVE && player.getInventory().getItemInMainHand().getType() == Material.STICK) {
+                    sendMessageToPlayer(player, getTranslatedKeys("destroyShop"), sErrorColor);
+                    ShopAdmin shopAdmin = new ShopAdmin(player, getDataFolder(), barrel.getLocation(), true);
+                    shopAdmin.deleteShop();
+                    a_objShowItemShop.put(barrel.getLocation(), null);
+                }
+
+                if(player.getGameMode() == GameMode.SURVIVAL) {
+                    e.setCancelled(true);
+
+                    openShop(player, barrel.getLocation());
+                }
+            }
+
+            if(e.getAction() == Action.RIGHT_CLICK_BLOCK) {
+                e.setCancelled(true);
+                openShop(player, barrel.getLocation());
+            }
+        }
+        */
+    }
+
+    @EventHandler
+    public void onPlayerBreak(BlockBreakEvent event) {
+        if (event.getPlayer() != null) {
+            Player player = event.getPlayer();
+            // TODO: If is a shop need a way to cancel event
+        }
+    }
+
+    @EventHandler
+    public void onPlayerPlaceBlock(BlockPlaceEvent event) {
+        if(event.getPlayer() != null) {
+            Player player = event.getPlayer();
+
+            //TODO: To get Buy and Sell we need the sign like so
+            // Line One:    [tmwm]
+            // Line two:    * (item in hand) or DIAMOND
+            // Line three:  B 200 : S 100
+
+            if(event.getBlockPlaced().getState() instanceof Barrel) {
+                Barrel barrel = (Barrel) event.getBlockPlaced().getState();
+                if (event.getBlockPlaced().getType() == Material.BARREL && barrel.getCustomName() != null && barrel.getCustomName().equalsIgnoreCase(barrelShopName)) {
+                    createShop(player, event.getBlockPlaced().getLocation());
+                }
+            }
+        }
+    }
+
+    /**
+     * This is call when sign is change
+     * @param e
+     */
+    @EventHandler
+    public void onSignChange(SignChangeEvent e) {
+        if (havePermission(e.getPlayer(),"admin") && e.getPlayer().hasPermission("sign.color")) {
+
+            if (ChatColor.stripColor(e.getLine(0)).equalsIgnoreCase("[tmwm]")) {
+
+                Player player = e.getPlayer();
+
+                String secondLine = ChatColor.stripColor(e.getLine(1)).toLowerCase();
+
+                // Check the 2e line if not part of our list tell the player misspell
+                switch (secondLine) {
+                    case "shop":
+                        // Good we have this
+                        break;
+
+                    default:
+                        // Unknown this second line
+                        e.getPlayer().sendMessage(sPluginName + sOrangeColor + "Second line was wrong, must be :" + sResetColor + " shop");
+                        return;
+                }
+
+                if (secondLine.equalsIgnoreCase("shop")) {
+                    // createShop
+                    createShop(player, e.getBlock().getLocation());
+                }
+            }
+        }
+    }
+
+    @EventHandler
+    private void onChatMessage(AsyncPlayerChatEvent e) {
+
+        Player player = e.getPlayer();
+        UUID playerId = player.getUniqueId();
+
+        // Check if we need to cancel and put text in something
+        if(a_handleChatMessage.containsKey(playerId) && a_handleChatMessage.get(playerId) != null) {
+            // check if its
+            HandleMessage handleMessage = a_handleChatMessage.get(playerId);
+            if(handleMessage.getInputPlayer().isEmpty()) {
+                e.setCancelled(true);
+                if(handleMessage.setInputPlayer(e.getMessage())) {
+                    sendMessageToPlayer(player, "✓ '"+e.getMessage().trim()+"' "+getTranslatedKeys("saved"), sCorrectColor);
+                }else {
+                    sendMessageToPlayer(player, "✖ '"+e.getMessage().trim()+"' "+getTranslatedKeys("somethingWrongHappen")+" :(", sErrorColor);
+                }
+            }
+
+            ShopAdmin shopAdmin = handleMessage.getShopAdmin();
+
+            // No matter what we clear the handleChatMessage
+            a_handleChatMessage.remove(playerId);
+        }
+
+        //e.getPlayer();
+        //consoleLog(e.getMessage());
+    }
+
+    private void playNote(Player player, Instrument instrument, Note note, int iTickTime) {
+        Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+            @Override
+            public void run() {
+                player.playNote(player.getLocation(), instrument, note);
+            }
+        }, iTickTime);
+    }
+
+    private void playTransactionCompleted(Player player) {
+        playNote(player, Instrument.XYLOPHONE, Note.natural(1, Note.Tone.A), 1);
+        playNote(player, Instrument.XYLOPHONE, Note.natural(1, Note.Tone.B), 3);
+        playNote(player, Instrument.XYLOPHONE, Note.natural(1, Note.Tone.C), 5);
+        playNote(player, Instrument.XYLOPHONE, Note.natural(1, Note.Tone.D), 7);
+        playNote(player, Instrument.XYLOPHONE, Note.natural(1, Note.Tone.E), 10);
+    }
+
+    @EventHandler
+    private void inventoryClick(InventoryClickEvent e) {
+        Player player = (Player) e.getWhoClicked();
+
+        // Only our plugin in
+        if (e.getView().getTitle().toLowerCase().startsWith(sPluginNameNoColor.toLowerCase())) {
+            e.setCancelled(true);
+            if ((e.getCurrentItem() == null) || (e.getCurrentItem().getType().equals(Material.AIR))) {
+                return;
+            }
+
+            // Delay executing task
+            UUID idPlayer = player.getUniqueId();
+            int iTask = 0;
+            if(a_sTimerShop.containsKey(idPlayer)) {
+                iTask = a_sTimerShop.get(idPlayer);
+                consoleLog("containsKey task: "+iTask);
+                if(iTask != 0) {
+                    consoleLog("task is not 0");
+                    // check if task is completed
+                    if(iTask%2 == 0) { // 50% chance to send the pleaseWait (less message to console)
+                        sendMessageToPlayer(player, "pleaseWait", sOrangeColor);
+                    }
+                    return;
+                }
+            }
+            iTask = Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable(){
+                public void run() {
+                    // Clear the task
+                    a_sTimerShop.put(idPlayer, 0);
+                    consoleLog("task completed we put 0");
+                }
+            }, 10); // 1 second = 20 ticks
+
+            a_sTimerShop.put(idPlayer, iTask);
+            consoleLog(idPlayer+" new task: "+iTask);
+
+            // The Type inventory
+            String[] a_sSplitName = e.getView().getTitle().split(":");
+
+            String[] a_sSplitLocation = a_sSplitName[2].split("l");
+            Location location = new Location(player.getWorld(), Integer.parseInt(a_sSplitLocation[0]),Integer.parseInt(a_sSplitLocation[1]),Integer.parseInt(a_sSplitLocation[2]));
+
+            consoleLog("SlotId: "+e.getSlot());
+            consoleLog("getTYpe: "+e.getClickedInventory().getType());
+            ShopAdmin shopAdmin = null;
+            int qts = 0;
+
+            switch (a_sSplitName[1].toLowerCase()) {
+
+                case "addorremoveitems":
+                    if(havePermission(player, "admin")) {
+                    shopAdmin = new ShopAdmin(player, getDataFolder(), location, true);
+                    a_objShowItemShop.put(location, shopAdmin.getItemStack().getType());
+
+                    if(e.getClickedInventory().getType() == InventoryType.CHEST) {
+                        switch(e.getSlot()) {
+
+                            case 0: // Return
+                                player.closeInventory(); // We need to close the other one
+                                GuiCMD guiCMD = new GuiCMD(player, "adminShop", location);
+                                guiCMD.render(shopAdmin);
+                                return;
+
+                            case 18: // Close interface
+                                player.closeInventory();
+                                return;
+
+                            case 11: // Add or Remove - 1
+                            case 12: // Add or Remove - 8
+                            case 13: // Add or Remove - 16
+                            case 14: // Add or Remove - 32
+                            case 15: // add or Remove - 64
+
+                                // convert slot by stack
+                                int amount = 1;
+                                switch(e.getSlot()) {
+                                    case 11:
+                                        amount = 1;
+                                        break;
+                                    case 12:
+                                        amount = 8;
+                                        break;
+                                    case 13:
+                                        amount = 16;
+                                        break;
+                                    case 14:
+                                        amount = 32;
+                                        break;
+                                    case 15:
+                                        amount = 64;
+                                        break;
+
+                                    default:
+                                        LOG.warning(e.getSlot()+" is not implemented for adding/removing items");
+                                }
+
+                                boolean isAmountNegative = false;
+                                if(e.isLeftClick()) {
+                                    isAmountNegative = true;
+                                }
+                                else if(e.isRightClick()) {
+                                    // nothing to handle here
+                                }
+                                else {
+                                    LOG.warning("Not left no right... WTF? What a Terrible Failed!");
+                                }
+
+                                int iShop = shopAdmin.getQuantity();
+                                int qtsLeft = 0;
+                                if(isAmountNegative) {
+                                    // need to check if we have to good qts if we remove, because we throw at player
+
+                                    // if in the shop we have less than amount
+                                    if(iShop < amount) {
+                                        amount = iShop;
+                                    }
+
+                                    if(amount > 0) {
+                                        ItemStack itemStackToGive = shopAdmin.getItemStack();
+                                        itemStackToGive.setAmount(amount);
+                                        player.getWorld().dropItem(player.getLocation(), itemStackToGive);
+                                        qtsLeft = iShop - amount;
+                                    }
+                                    else {
+                                        // Shop is empty
+                                        sendMessageToPlayer(player, "outOfOrder", sErrorColor);
+                                    }
+                                }
+                                else {
+                                    // need to check if player have the amount on him if we add stuff
+                                    amount = amount - getInvAmountForItems(player, shopAdmin.getItemStack(), amount);
+                                    if(amount > 0) {
+                                        player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 0.8F, 0.7F);
+                                    } else {
+                                        playDenyShopSound(player);
+                                        sendMessageToPlayer(player, "invFailedItem", sErrorColor);
+                                    }
+                                    qtsLeft = iShop + amount;
+
+                                }
+
+                                // Just in case we put to 0
+                                if(qtsLeft < 0) {
+                                    qtsLeft = 0;
+                                }
+
+                                shopAdmin.setQuantity(qtsLeft);
+                                break;
+
+                            default:
+                                // Nothing to do
+                                break;
+                        }
+
+                            // ReRender gui
+                            GuiCMD guiCMD = new GuiCMD(player, "addOrRemoveItems", location);
+                            guiCMD.render(shopAdmin);
+                        }
+                    }
+
+                    break;
+
+                case "adminshop":
+                    shopAdmin = new ShopAdmin(player, getDataFolder(), location, true);
+                    a_objShowItemShop.put(location, shopAdmin.getItemStack().getType());
+
+                    // Change item when click on Player Inventory
+                    if(e.getClickedInventory().getType() == InventoryType.PLAYER) {
+
+                        consoleLog("IdClicked: "+e.getSlot());
+                        if(e.getClickedInventory().getItem(e.getSlot()) != null) {
+                            consoleLog("item: " + e.getClickedInventory().getItem(e.getSlot()).getType().name());
+                        }
+                        else {
+                            consoleLog("item: null");
+                        }
+
+                        if(havePermission(player, "admin")) {
+                            // change item? Or Sell?
+                        }
+
+                        // ReRender gui
+                        GuiCMD guiCMD = new GuiCMD(player, "adminShop", location);
+                        guiCMD.render(shopAdmin);
+                    }
+                    else if(e.getClickedInventory().getType() == InventoryType.CHEST) {
+                        switch(e.getSlot()) {
+                            case 4: // CHANGE ITEM
+                                if(havePermission(player, "admin")) {
+
+                                    // Check if the shop is OP (ok to change) but if not, need to empty shop before change item
+                                    if(!shopAdmin.hasInfinity() && shopAdmin.getQuantity() > 0) {
+                                        player.closeInventory();
+                                        sendMessageToPlayer(player, "shopNotEmpty", sErrorColor);
+                                        return;
+                                    }
+
+                                    // Open another Gui to change item from the Player inventory
+                                    GuiCMD guiCMD = new GuiCMD(player, "changeShopItem", location);
+                                    guiCMD.render(shopAdmin);
+                                    return;
+                                }
+                                break;
+
+                            case 9: // Change Buying price
+                                if(havePermission(player, "admin")) {
+
+                                    HandleMessage handleMessage = new HandleMessage(player, "buying_price", "", shopAdmin);
+                                    a_handleChatMessage.put(idPlayer, handleMessage);
+                                    sendMessageToPlayer(player, getTranslatedKeys("putPriceTchat"), sOrangeColor);
+                                    player.closeInventory(); // We need to close the other one
+                                    return;
+                                }
+                                break;
+
+                            case 17: // Change Selling price
+                                if(havePermission(player, "admin")) {
+                                    HandleMessage handleMessage = new HandleMessage(player, "selling_price", "", shopAdmin);
+                                    a_handleChatMessage.put(idPlayer, handleMessage);
+                                    sendMessageToPlayer(player, getTranslatedKeys("putPriceTchat"), sOrangeColor);
+                                    player.closeInventory(); // We need to close the other one
+                                    return;
+                                }
+                                break;
+
+                            case 18:
+                            case 19:
+                            case 20:
+                            case 21:
+
+                                //1 8 32 64 - BUYING FROM SHOP
+                                switch(e.getSlot()) {
+                                    case 18:
+                                        qts = 1;
+                                        break;
+                                    case 19:
+                                        qts = 8;
+                                        break;
+                                    case 20:
+                                        qts = 32;
+                                        break;
+                                    case 21:
+                                        qts = 64;
+                                        break;
+                                    default:
+                                        consoleLog("Error "+e.getSlot()+" not implemented in adminshop:click");
+                                        return;
+                                }
+
+                                if(qts > shopAdmin.getItemStack().getMaxStackSize()) {
+                                    qts = shopAdmin.getItemStack().getMaxStackSize();
+                                }
+
+                                consoleLog("Buying "+qts+" from shop and is "+(shopAdmin.hasInfinity() ? "op" : "not-op"));
+
+                                // if not op, we need to check if this shop has enough items
+                                if(!shopAdmin.hasInfinity() && shopAdmin.getQuantity() < qts) {
+                                    playDenyShopSound(player);
+                                    sendMessageToPlayer(player, "outOfOrder", sErrorColor);
+                                    return;
+                                }
+
+                                // the price
+                                double price = qts * shopAdmin.getBuyPrice();
+
+                                // No room in inventory
+                                if(!playerHaveSpaceInventory(player, shopAdmin.getItemStack().clone(), qts)) {
+                                    playDenyShopSound(player);
+                                    sendMessageToPlayer(player, "nospace", sErrorColor);
+                                    return;
+                                }
+
+                                // check if player have this amount in is pocket
+                                if(econ.getBalance(player) < price) {
+                                    playDenyShopSound(player);
+                                    sendMessageToPlayer(player, "nomoney", sErrorColor);
+                                    return;
+                                }
+
+                                // Player haves the amount so make transaction and if ok give items to player and remove from shop if not op
+                                EconomyResponse r = econ.withdrawPlayer(player,price);
+                                if(r.transactionSuccess()) {
+
+                                    // transaction completed... Give items to player
+                                    ItemStack itemStackToPlayer = shopAdmin.getItemStack().clone();
+                                    itemStackToPlayer.setAmount(qts);
+                                    player.getInventory().addItem(itemStackToPlayer);
+
+                                    if(!shopAdmin.hasInfinity()) {
+                                        // Shop is op : just take money/items from player
+                                        shopAdmin.setQuantity(shopAdmin.getQuantity()-qts);
+                                        consoleLog("ShopBalance+price "+shopAdmin.getBalance()+"+"+price);
+                                        shopAdmin.setBalance(shopAdmin.getBalance()+price);
+
+                                    }
+                                    playTransactionCompleted(player);
+
+                                } else {
+                                    playDenyShopSound(player);
+                                    sendMessageToPlayer(player, "transactionFailed", sErrorColor);
+                                    LOG.info(String.format("An error occured: %s", r.errorMessage));
+                                    return;
+                                }
+
+                                // Player buying stuff - Need to check if is OP (so no worries about qts/money)
+                                // otherwise we need to check the qts of the shop
+                                break;
+
+                            case 23:
+                            case 24:
+                            case 25:
+                            case 26:
+
+                                // 1 8 32 64 - SELLING FROM SHOP
+                                switch(e.getSlot()) {
+                                    case 23:
+                                        qts = 1;
+                                        break;
+                                    case 24:
+                                        qts = 8;
+                                        break;
+                                    case 25:
+                                        qts = 32;
+                                        break;
+                                    case 26:
+                                        qts = 64;
+                                        break;
+                                    default:
+                                        consoleLog("Error "+e.getSlot()+" not implemented in adminshop:click");
+                                        return;
+                                }
+                                consoleLog("Selling "+qts+" from shop and is "+(shopAdmin.hasInfinity() ? "op" : "not-op"));
+
+
+
+                                // Player selling stuff - Need to check if is OP (so no worries about qts/money)
+                                // otherwise we need to check the balance of the shop
+                                // check if player have the exact item but if click the 64 and have only 60 sell all.
+                                break;
+
+                            case 49: // Close interface
+                                player.closeInventory();
+                                return;
+
+                            case 50: // ADD REMOVE ITEMS
+                                player.closeInventory(); // We need to close the other one
+
+                                if(havePermission(player, "admin")) {
+                                    GuiCMD guiCMD = new GuiCMD(player, "addOrRemoveItems", location);
+                                    guiCMD.render(shopAdmin);
+                                }
+                                return; // We must return we reRender gui adminShop at the bottom
+
+                            case 53: // FLAG OP SHOP
+                                if(havePermission(player, "admin")) {
+                                    shopAdmin.setInfinity(!shopAdmin.hasInfinity());
+                                }
+                                break;
+
+                            default:
+                                // Nothing to do
+                                break;
+                        }
+
+                        // ReRender gui
+                        GuiCMD guiCMD = new GuiCMD(player, "adminShop", location);
+                        guiCMD.render(shopAdmin);
+                    }
+                   break;
+
+
+                case "changeshopitem":
+                    // Only Admin can change item from a shop
+                    if(havePermission(player, "admin")) {
+                        shopAdmin = new ShopAdmin(player, getDataFolder(), location, true);
+                        a_objShowItemShop.put(location, shopAdmin.getItemStack().getType());
+
+                        // Inventory click
+                        if(e.getClickedInventory().getType() == InventoryType.CHEST) {
+                            switch(e.getSlot()) {
+                                case 0: // Go back;
+                                    player.closeInventory();
+                                    GuiCMD guiCMD = new GuiCMD(player, "adminShop", location);
+                                    guiCMD.render(shopAdmin);
+                                    return;
+
+                                case 8: // Close
+                                    player.closeInventory();
+                                    return;
+                            }
+                        }
+                        else if(e.getClickedInventory().getType() == InventoryType.PLAYER) {
+                            // Inventory player
+                            // If not null change item from the shop
+
+                            ItemStack itemStackClicked = e.getClickedInventory().getItem(e.getSlot());
+                            if(itemStackClicked != null) {
+                                // we clone the item and change the qts
+                                ItemStack itemStackClone = itemStackClicked.clone();
+                                itemStackClone.setAmount(1);
+                                shopAdmin.setItemStack(itemStackClone);
+
+                                // ReRender gui
+                                GuiCMD guiCMD = new GuiCMD(player, "changeShopItem", location);
+                                guiCMD.render(shopAdmin);
+
+                            }
+
+                        }
+                    }
+                    break;
+
+                default:
+                    LOG.warning(a_sSplitName[1].toLowerCase()+" is not implemented");
+            }
+        }
+    }
+
     @EventHandler
     private void onUserBalanceUpdate(UserBalanceUpdateEvent event) {
         // This is used when transaction was made by players
         // TODO: Also keep the last 100 transactions made?
-        LOG.info("saveMoneyPlayerPerGroup...");
+        consoleLog("saveMoneyPlayerPerGroup... ");
 
         String sGroupName = getGroupNameByWorld(event.getPlayer().getWorld().getName());
         saveMoneyPlayerInGroup(event.getPlayer(),sGroupName, Double.parseDouble(event.getNewBalance()+""), false);
 
         // Take the world from the player online
-        LOG.info("==============================================");
-        LOG.info("player: "+event.getPlayer().getName());
-        LOG.info("world: "+event.getPlayer().getWorld().getName());
-        LOG.info("Cause: "+event.getCause().name());
-        LOG.info("oldBalance: "+event.getOldBalance());
-        LOG.info("NewBalance: "+event.getNewBalance());
-        LOG.info("==============================================");
+
+        consoleLog("==============================================");
+        consoleLog("player: "+event.getPlayer().getName());
+        consoleLog("world: "+event.getPlayer().getWorld().getName());
+        consoleLog("Cause: "+event.getCause().name());
+        consoleLog("oldBalance: "+event.getOldBalance());
+        consoleLog("NewBalance: "+event.getNewBalance());
+        consoleLog("==============================================");
     }
 
     @EventHandler
@@ -1814,6 +2420,16 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         sendMessageToPlayer(sender, "You cannot use this command in the console", "");
     }
 
+    private void reloadItemShop() {
+
+        for(Location locationBarrel : a_objShowItemShop.keySet()) {
+            // Find if en ent is over the barrel
+
+            // Not found create a new one
+        }
+
+    }
+
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 
         boolean bConsoleOrOP = (!(sender instanceof Player) || sender.isOp());
@@ -1876,13 +2492,23 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                             sender.sendMessage(sObjectColor+command.getUsage());
                             return true;
 
+                        case "show_armor_stand":
+                            if(bConsole) {
+                                sendMessageToConsoleCannotUse(sender);
+                                return true;
+                            }
+                            if(havePermission(sender, "admin")) {
+                                showAllArmorStandInvisible(player, 10);
+                            }
+
+                            return true;
+
                         case "pay":
 
                             if(bConsole) {
                                 sendMessageToConsoleCannotUse(sender);
                                 return true;
                             }
-
 
                             if(havePermission(sender, "pay")) {
                                 // do we have all args
@@ -1940,9 +2566,11 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                             }
 
                             // create the admin shop based on item in hand
-                            createShop(player);
-
-
+                            List<String> a_sWordReplace = new ArrayList<>();
+                            a_sWordReplace.add(sErrorColor+"[TMWM]"+sOrangeColor);
+                            a_sWordReplace.add(sErrorColor+"shop"+sOrangeColor);
+                            sendMessageToPlayer(sender, "placeSignOnBarrel", sOrangeColor, a_sWordReplace);
+                            //getBarrelShop(player);
                             return true;
 
                         case "player": // all command for player
@@ -2162,13 +2790,51 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
                 return false;
         }
-
-
         return false;
     }
 
-    private void createShop(Player player) {
-        ShopAdmin shopAdmin = new ShopAdmin(player, getDataFolder());
+    /*
+    private void getBarrelShop(Player player) {
+        // This will give a special barrel to place
+        ItemStack itemStack = new ItemStack(Material.BARREL, 1);
+        ItemMeta im = itemStack.getItemMeta();
+        im.setDisplayName(barrelShopName);
+        im.setCustomModelData(1);
+
+        itemStack.setItemMeta(im);
+        player.getWorld().dropItem(player.getLocation().add(0,1,0), itemStack);
+    }
+    */
+
+    private void createShop(Player player, Location locationBarrel) {
+        ShopAdmin shopAdmin = new ShopAdmin(player, getDataFolder(), locationBarrel, false);
+        a_objShowItemShop.put(locationBarrel, shopAdmin.getItemStack().getType());
+        shopAdmin.saveOnFile();
+        Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+            @Override
+            public void run() {
+                consoleLog("createShop: "+shopAdmin.getItemStack().getType().name());
+                shopAdmin.updateSign(shopAdmin.getItemStack());
+            }
+        }, 10);
+
+        GuiCMD guiCMD = new GuiCMD(player, "adminShop", locationBarrel);
+        guiCMD.render(shopAdmin);
+    }
+
+    private void openShop(Player player, Location locationBarrel) {
+        player.playNote(player.getLocation(), Instrument.BELL, Note.natural(1, Note.Tone.C));
+        ShopAdmin shopAdmin = new ShopAdmin(player, getDataFolder(), locationBarrel, true);
+        Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+            @Override
+            public void run() {
+                consoleLog("openShop: "+shopAdmin.getItemStack().getType().name());
+                shopAdmin.updateSign(shopAdmin.getItemStack());
+            }
+        },10);
+        a_objShowItemShop.put(locationBarrel, shopAdmin.getItemStack().getType());
+        GuiCMD guiCMD = new GuiCMD(player, "adminShop",locationBarrel);
+        guiCMD.render(shopAdmin);
     }
 
     private void handleGroupTransaction(CommandSender sender, OfflinePlayer offlinePlayer, FileConfiguration config, String sGroupName, String sType, Double dAmount) {
