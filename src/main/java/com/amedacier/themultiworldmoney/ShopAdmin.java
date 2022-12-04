@@ -25,8 +25,9 @@ import java.util.function.Predicate;
 
 /**
  * TODO:
- *  - verification quand pas OP que la balance reflete que ce le player peut acheter
+ *  - verification quand pas OP que la balance reflect que ce le player peut acheter
  *  - faire la partie vendre au shop player 2 shop
+ *  - Tout ce qui touche le ah/ac/hdv
  *  - autre chose a faire... a voir...
  *
  */

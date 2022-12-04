@@ -28,6 +28,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.*;
 
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -1287,6 +1288,9 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                         guiCMD.render(shopAdmin);
                     }
                     else if(e.getClickedInventory().getType() == InventoryType.CHEST) {
+
+                        EconomyResponse r = null;
+
                         switch(e.getSlot()) {
                             case 4: // CHANGE ITEM
                                 if(havePermission(player, "admin")) {
@@ -1330,8 +1334,9 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                             case 19:
                             case 20:
                             case 21:
-
+                                /////////////////////////////////////////
                                 //1 8 32 64 - BUYING FROM SHOP
+                                /////////////////////////////////////////
                                 switch(e.getSlot()) {
                                     case 18:
                                         qts = 1;
@@ -1381,7 +1386,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                                 }
 
                                 // Player haves the amount so make transaction and if ok give items to player and remove from shop if not op
-                                EconomyResponse r = econ.withdrawPlayer(player,price);
+                                r = econ.withdrawPlayer(player,price);
                                 if(r.transactionSuccess()) {
 
                                     // transaction completed... Give items to player
@@ -1397,6 +1402,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
                                     }
                                     playTransactionCompleted(player);
+                                    sendNewBalancePlayer(player);
 
                                 } else {
                                     playDenyShopSound(player);
@@ -1413,8 +1419,9 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                             case 24:
                             case 25:
                             case 26:
-
+                                /////////////////////////////////////////
                                 // 1 8 32 64 - SELLING FROM SHOP
+                                /////////////////////////////////////////
                                 switch(e.getSlot()) {
                                     case 23:
                                         qts = 1;
@@ -1432,9 +1439,54 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                                         consoleLog("Error "+e.getSlot()+" not implemented in adminshop:click");
                                         return;
                                 }
-                                consoleLog("Selling "+qts+" from shop and is "+(shopAdmin.hasInfinity() ? "op" : "not-op"));
 
+                                // if not op, we need to check if this shop has enough money
+                                if(!shopAdmin.hasInfinity() && shopAdmin.getBalance() < qts*shopAdmin.getSellPrice()) {
+                                    playDenyShopSound(player);
+                                    sendMessageToPlayer(player, "outOfOrder", sErrorColor);
+                                    return;
+                                }
 
+                                int iQtsPlayer = getAmountOfItemsInventoryPlayer(player, shopAdmin.getItemStack().clone(), qts);
+
+                                if(iQtsPlayer == 0) {
+                                    playDenyShopSound(player);
+                                    sendMessageToPlayer(player, "noItemInv", sErrorColor);
+                                    return;
+                                }
+                                if(iQtsPlayer <= qts) {
+                                    qts = iQtsPlayer;
+                                }
+
+                                // the price
+                                double priceSell = qts * shopAdmin.getSellPrice();
+
+                                // Player haves the amount so make transaction and if ok give items to player and remove from shop if not op
+                                r = econ.depositPlayer(player, priceSell);
+                                if(r.transactionSuccess()) {
+
+                                    // transaction completed... Remove items to player
+                                    if(removeItemsFromInventoryPlayer(player, shopAdmin.getItemStack().clone(), qts) > 0) {
+                                        List<String> a_sWordReplace = new ArrayList<>();
+                                        a_sWordReplace.add(sCorrectColor+qts+" "+shopAdmin.getItemStack().getType().name()+sResetColor);
+                                        sendMessageToPlayer(player, "soldItem", sResetColor, a_sWordReplace);
+                                        //sendMessageToPlayer(player);
+                                    }
+
+                                    if(!shopAdmin.hasInfinity()) {
+                                        // Shop is op : just take money/items from player
+                                        shopAdmin.setQuantity(shopAdmin.getQuantity()+qts);
+                                        shopAdmin.setBalance(shopAdmin.getBalance()-priceSell);
+                                    }
+                                    playTransactionCompleted(player);
+                                    sendNewBalancePlayer(player);
+
+                                } else {
+                                    playDenyShopSound(player);
+                                    sendMessageToPlayer(player, "transactionFailed", sErrorColor);
+                                    LOG.info(String.format("An error occured: %s", r.errorMessage));
+                                    return;
+                                }
 
                                 // Player selling stuff - Need to check if is OP (so no worries about qts/money)
                                 // otherwise we need to check the balance of the shop
@@ -1517,6 +1569,48 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                     LOG.warning(a_sSplitName[1].toLowerCase()+" is not implemented");
             }
         }
+    }
+
+    private int getAmountOfItemsInventoryPlayer(Player player, ItemStack itemStackClone, int iQts) {
+
+        int iQtsInventory = 0;
+
+        for(ItemStack itemstack : player.getInventory().getContents()) {
+            if(itemstack != null && itemStackClone.isSimilar(itemstack)) { // no empty slot
+                iQtsInventory = iQtsInventory + itemstack.getAmount();
+            }
+        }
+
+        return iQtsInventory;
+    }
+
+    private int removeItemsFromInventoryPlayer(Player player, ItemStack itemStackClone, int iQts) {
+
+        int iQtsLeft = iQts;
+        int iQtsSold = 0;
+
+        for(ItemStack itemstack : player.getInventory().getContents()) {
+            if(iQtsLeft > 0 && itemstack != null && itemStackClone.isSimilar(itemstack)) { // empty slot
+                if (itemstack.getAmount() > iQtsLeft){
+                    iQtsSold = iQtsSold + iQtsLeft;
+                    itemstack.setAmount(itemstack.getAmount() - iQtsLeft);
+                    return iQtsSold;
+                }
+                else if(itemstack.getAmount() <= iQtsLeft) {
+                    iQtsLeft = iQtsLeft - itemstack.getAmount();
+                    iQtsSold = iQtsSold + itemstack.getAmount();
+                    itemstack.setAmount(0);
+                    //player.getInventory().remove(itemstack); // This remove all matching not what I want
+                }
+            }
+        }
+
+        return iQtsSold;
+    }
+
+
+    private void sendNewBalancePlayer(Player player) {
+        sendMessageToPlayer(player, "Balance: "+sObjectColor+econ.format(econ.getBalance(player)), sOrangeColor);
     }
 
     @EventHandler
