@@ -2,25 +2,26 @@ package com.amedacier.themultiworldmoney;
 
 import org.bukkit.*;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
+//import org.bukkit.block.BlockFace;
 import org.bukkit.block.Sign;
-import org.bukkit.block.data.BlockData;
-import org.bukkit.block.data.Directional;
+//import org.bukkit.block.data.BlockData;
+//import org.bukkit.block.data.Directional;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.*;
-import org.bukkit.event.player.PlayerTeleportEvent;
+//import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.material.MaterialData;
-import org.bukkit.metadata.MetadataValue;
+//import org.bukkit.inventory.meta.ItemMeta;
+//import org.bukkit.material.MaterialData;
+//import org.bukkit.metadata.MetadataValue;
 
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.*;
 import java.util.Collection;
-import java.util.Iterator;
+//import java.util.Iterator;
 import java.util.function.Predicate;
 
 /**
@@ -35,6 +36,8 @@ import java.util.function.Predicate;
 public class ShopAdmin {
 
     private Player player;
+    private OfflinePlayer playerOwner;
+    private boolean isNewShop = false;
     private File dataFolder;
     private ItemStack itemStack;
     private int quantity = 0;
@@ -52,6 +55,7 @@ public class ShopAdmin {
         this.world = lBarrel.getWorld();
         this.dataFolder = df;
         this.player = p;
+        this.playerOwner = p;
 
         if(bLoadFromFile) {
             loadFromFile();
@@ -60,7 +64,10 @@ public class ShopAdmin {
         else {
             itemStack = new ItemStack(Material.STICK, 1); // By default, we put a stick
         }
+    }
 
+    public boolean isShopOwner(Player player) {
+        return this.playerOwner.getUniqueId() == player.getUniqueId();
     }
 
     public boolean isSellPriceUpperThanBuying(double sell, double buy) {
@@ -149,6 +156,7 @@ public class ShopAdmin {
 
         if(!file.exists()){
             file.getParentFile().mkdirs();
+            isNewShop = true;
             try {
                 file.createNewFile();
             } catch (IOException e) {
@@ -175,6 +183,11 @@ public class ShopAdmin {
         config.set("hasInfinity", hasInfinity);
         config.set("locationBarrel", locationBarrel);
         config.set("balance", balance);
+
+        if(isNewShop) {
+            config.set("ownerId", playerOwner.getUniqueId()+"");
+        }
+
         try {
             config.save(file);
         } catch (IOException e) {
@@ -248,6 +261,10 @@ public class ShopAdmin {
         // Delete the file?
     }
 
+    public OfflinePlayer getPlayerOwner() {
+        return playerOwner;
+    }
+
     private void loadFromFile() {
         FileConfiguration config = null;
         File file = getFile();
@@ -260,6 +277,7 @@ public class ShopAdmin {
         this.hasInfinity = config.getBoolean("hasInfinity");
         this.locationBarrel = config.getLocation("locationBarrel");
         this.balance = config.getDouble("balance");
+        this.playerOwner = Bukkit.getOfflinePlayer(UUID.fromString(config.getString("ownerId")));
 
         this.world = this.locationBarrel.getWorld();
     }

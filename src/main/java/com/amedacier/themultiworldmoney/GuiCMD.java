@@ -146,6 +146,11 @@ public class GuiCMD {
             isAdmin = true;
         }
 
+        Boolean isOwner = false;
+        if(shopAdmin.isShopOwner(player)) {
+            isOwner = true;
+        }
+
         // Init Lore for any Item (reset on each item)
         ArrayList<String> lore;
 
@@ -190,14 +195,16 @@ public class GuiCMD {
             lore.add("§7Qts: "+(hasInfinity ? "-"  : iQts));
         }
 
+        lore.add("§9"+TheMultiWorldMoney.getTranslatedKeys("owner")+": §a"+shopAdmin.getPlayerOwner().getName());
+
         boolean bOutOfMoney = false;
         double balanceShop = shopAdmin.getBalance();
         if(!hasInfinity && balanceShop == 0) {
             bOutOfMoney = true;
         }
 
-        if(isAdmin) {
-            lore.add("§4Admin: "+TheMultiWorldMoney.getTranslatedKeys("changeItem"));
+        if(isOwner) {
+            lore.add("§4"+TheMultiWorldMoney.getTranslatedKeys("changeItem"));
         }
         // We place the itemStack in the middle
         placeItem(4, itemStackShop, sDisplayName, lore); // position 4 is the middle one
@@ -284,7 +291,7 @@ public class GuiCMD {
         /////////////////////////////////////////////////////////
         // Admin stuff here
         /////////////////////////////////////////////////////////
-        if(isAdmin) {
+        if(isOwner || isAdmin) {
 
             // Change Price Buy/sell 9 - 17
             lore = new ArrayList<>();
@@ -331,22 +338,25 @@ public class GuiCMD {
             }
 
 
-            // FLAG OP INFINITY OR NOT
-            sDisplayName = "§4OP shop?";
-            // Boolean to change the shop as infinite or not
-            ItemStack itemStackFlag = new ItemStack(Material.LIGHT_GRAY_BANNER, 1);
-            lore = new ArrayList<>();
-            lore.add("§3"+TheMultiWorldMoney.getTranslatedKeys("normalShop"));
-            lore.add("§2"+TheMultiWorldMoney.getTranslatedKeys("turnOnInfinity"));
-            lore.add("§7"+TheMultiWorldMoney.getTranslatedKeys("turnOnInfinityInfo"));
-            if(shopAdmin.hasInfinity()) {
-                itemStackFlag.setType(Material.GREEN_BANNER);
+            // FLAG OP INFINITY OR NOT ONLY ADMIN
+            if(isAdmin) {
+                sDisplayName = "§4OP shop?";
+                // Boolean to change the shop as infinite or not
+                ItemStack itemStackFlag = new ItemStack(Material.LIGHT_GRAY_BANNER, 1);
                 lore = new ArrayList<>();
-                lore.add("§3"+TheMultiWorldMoney.getTranslatedKeys("OPShop"));
-                lore.add("§4"+TheMultiWorldMoney.getTranslatedKeys("turnOffInfinity"));
-                lore.add("§7"+TheMultiWorldMoney.getTranslatedKeys("turnOffInfinityInfo"));
+                lore.add("§3"+TheMultiWorldMoney.getTranslatedKeys("normalShop"));
+                lore.add("§2"+TheMultiWorldMoney.getTranslatedKeys("turnOnInfinity"));
+                lore.add("§7"+TheMultiWorldMoney.getTranslatedKeys("turnOnInfinityInfo"));
+                if(shopAdmin.hasInfinity()) {
+                    itemStackFlag.setType(Material.GREEN_BANNER);
+                    lore = new ArrayList<>();
+                    lore.add("§3"+TheMultiWorldMoney.getTranslatedKeys("OPShop"));
+                    lore.add("§4"+TheMultiWorldMoney.getTranslatedKeys("turnOffInfinity"));
+                    lore.add("§7"+TheMultiWorldMoney.getTranslatedKeys("turnOffInfinityInfo"));
+                }
+                placeItem(53, itemStackFlag, sDisplayName, lore); // position 53 the last one
             }
-            placeItem(53, itemStackFlag, sDisplayName, lore); // position 53 the last one
+
         }
     }
 

@@ -1152,109 +1152,109 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             switch (a_sSplitName[1].toLowerCase()) {
 
                 case "addorremoveitems":
-                    if(havePermission(player, "admin")) {
                     shopAdmin = new ShopAdmin(player, getDataFolder(), location, true);
-                    a_objShowItemShop.put(location, shopAdmin.getItemStack().getType());
+                    if(shopAdmin.isShopOwner(player)) {
+                        a_objShowItemShop.put(location, shopAdmin.getItemStack().getType());
 
-                    if(e.getClickedInventory().getType() == InventoryType.CHEST) {
-                        switch(e.getSlot()) {
+                        if(e.getClickedInventory().getType() == InventoryType.CHEST) {
+                            switch(e.getSlot()) {
 
-                            case 0: // Return
-                                player.closeInventory(); // We need to close the other one
-                                GuiCMD guiCMD = new GuiCMD(player, "adminShop", location);
-                                guiCMD.render(shopAdmin);
-                                return;
+                                case 0: // Return
+                                    player.closeInventory(); // We need to close the other one
+                                    GuiCMD guiCMD = new GuiCMD(player, "adminShop", location);
+                                    guiCMD.render(shopAdmin);
+                                    return;
 
-                            case 18: // Close interface
-                                player.closeInventory();
-                                return;
+                                case 18: // Close interface
+                                    player.closeInventory();
+                                    return;
 
-                            case 11: // Add or Remove - 1
-                            case 12: // Add or Remove - 8
-                            case 13: // Add or Remove - 16
-                            case 14: // Add or Remove - 32
-                            case 15: // add or Remove - 64
+                                case 11: // Add or Remove - 1
+                                case 12: // Add or Remove - 8
+                                case 13: // Add or Remove - 16
+                                case 14: // Add or Remove - 32
+                                case 15: // add or Remove - 64
 
-                                // convert slot by stack
-                                int amount = 1;
-                                switch(e.getSlot()) {
-                                    case 11:
-                                        amount = 1;
-                                        break;
-                                    case 12:
-                                        amount = 8;
-                                        break;
-                                    case 13:
-                                        amount = 16;
-                                        break;
-                                    case 14:
-                                        amount = 32;
-                                        break;
-                                    case 15:
-                                        amount = 64;
-                                        break;
+                                    // convert slot by stack
+                                    int amount = 1;
+                                    switch(e.getSlot()) {
+                                        case 11:
+                                            amount = 1;
+                                            break;
+                                        case 12:
+                                            amount = 8;
+                                            break;
+                                        case 13:
+                                            amount = 16;
+                                            break;
+                                        case 14:
+                                            amount = 32;
+                                            break;
+                                        case 15:
+                                            amount = 64;
+                                            break;
 
-                                    default:
-                                        LOG.warning(e.getSlot()+" is not implemented for adding/removing items");
-                                }
-
-                                boolean isAmountNegative = false;
-                                if(e.isLeftClick()) {
-                                    isAmountNegative = true;
-                                }
-                                else if(e.isRightClick()) {
-                                    // nothing to handle here
-                                }
-                                else {
-                                    LOG.warning("Not left no right... WTF? What a Terrible Failed!");
-                                }
-
-                                int iShop = shopAdmin.getQuantity();
-                                int qtsLeft = 0;
-                                if(isAmountNegative) {
-                                    // need to check if we have to good qts if we remove, because we throw at player
-
-                                    // if in the shop we have less than amount
-                                    if(iShop < amount) {
-                                        amount = iShop;
+                                        default:
+                                            LOG.warning(e.getSlot()+" is not implemented for adding/removing items");
                                     }
 
-                                    if(amount > 0) {
-                                        ItemStack itemStackToGive = shopAdmin.getItemStack();
-                                        itemStackToGive.setAmount(amount);
-                                        player.getWorld().dropItem(player.getLocation(), itemStackToGive);
-                                        qtsLeft = iShop - amount;
+                                    boolean isAmountNegative = false;
+                                    if(e.isLeftClick()) {
+                                        isAmountNegative = true;
+                                    }
+                                    else if(e.isRightClick()) {
+                                        // nothing to handle here
                                     }
                                     else {
-                                        // Shop is empty
-                                        sendMessageToPlayer(player, "outOfOrder", sErrorColor);
+                                        LOG.warning("Not left no right... WTF? What a Terrible Failed!");
                                     }
-                                }
-                                else {
-                                    // need to check if player have the amount on him if we add stuff
-                                    amount = amount - getInvAmountForItems(player, shopAdmin.getItemStack(), amount);
-                                    if(amount > 0) {
-                                        player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 0.8F, 0.7F);
-                                    } else {
-                                        playDenyShopSound(player);
-                                        sendMessageToPlayer(player, "invFailedItem", sErrorColor);
+
+                                    int iShop = shopAdmin.getQuantity();
+                                    int qtsLeft = 0;
+                                    if(isAmountNegative) {
+                                        // need to check if we have to good qts if we remove, because we throw at player
+
+                                        // if in the shop we have less than amount
+                                        if(iShop < amount) {
+                                            amount = iShop;
+                                        }
+
+                                        if(amount > 0) {
+                                            ItemStack itemStackToGive = shopAdmin.getItemStack();
+                                            itemStackToGive.setAmount(amount);
+                                            player.getWorld().dropItem(player.getLocation(), itemStackToGive);
+                                            qtsLeft = iShop - amount;
+                                        }
+                                        else {
+                                            // Shop is empty
+                                            sendMessageToPlayer(player, "outOfOrder", sErrorColor);
+                                        }
                                     }
-                                    qtsLeft = iShop + amount;
+                                    else {
+                                        // need to check if player have the amount on him if we add stuff
+                                        amount = amount - getInvAmountForItems(player, shopAdmin.getItemStack(), amount);
+                                        if(amount > 0) {
+                                            player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 0.8F, 0.7F);
+                                        } else {
+                                            playDenyShopSound(player);
+                                            sendMessageToPlayer(player, "invFailedItem", sErrorColor);
+                                        }
+                                        qtsLeft = iShop + amount;
 
-                                }
+                                    }
 
-                                // Just in case we put to 0
-                                if(qtsLeft < 0) {
-                                    qtsLeft = 0;
-                                }
+                                    // Just in case we put to 0
+                                    if(qtsLeft < 0) {
+                                        qtsLeft = 0;
+                                    }
 
-                                shopAdmin.setQuantity(qtsLeft);
-                                break;
+                                    shopAdmin.setQuantity(qtsLeft);
+                                    break;
 
-                            default:
-                                // Nothing to do
-                                break;
-                        }
+                                default:
+                                    // Nothing to do
+                                    break;
+                            }
 
                             // ReRender gui
                             GuiCMD guiCMD = new GuiCMD(player, "addOrRemoveItems", location);
@@ -1293,7 +1293,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
                         switch(e.getSlot()) {
                             case 4: // CHANGE ITEM
-                                if(havePermission(player, "admin")) {
+                                if(shopAdmin.isShopOwner(player)) {
 
                                     // Check if the shop is OP (ok to change) but if not, need to empty shop before change item
                                     if(!shopAdmin.hasInfinity() && shopAdmin.getQuantity() > 0) {
@@ -1310,7 +1310,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                                 break;
 
                             case 9: // Change Buying price
-                                if(havePermission(player, "admin")) {
+                                if(shopAdmin.isShopOwner(player)) {
 
                                     HandleMessage handleMessage = new HandleMessage(player, "buying_price", "", shopAdmin);
                                     a_handleChatMessage.put(idPlayer, handleMessage);
@@ -1321,7 +1321,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                                 break;
 
                             case 17: // Change Selling price
-                                if(havePermission(player, "admin")) {
+                                if(shopAdmin.isShopOwner(player)) {
                                     HandleMessage handleMessage = new HandleMessage(player, "selling_price", "", shopAdmin);
                                     a_handleChatMessage.put(idPlayer, handleMessage);
                                     sendMessageToPlayer(player, getTranslatedKeys("putPriceTchat"), sOrangeColor);
@@ -1493,6 +1493,76 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                                 // check if player have the exact item but if click the 64 and have only 60 sell all.
                                 break;
 
+                            // Add balance to this shop
+                            case 46:
+                            case 47:
+                            case 48:
+
+                                double amount = 10.0;
+                                switch(e.getSlot()) {
+                                    case 46:
+                                        // default amount
+                                        break;
+
+                                    case 47:
+                                        amount = 100.0;
+                                        break;
+
+                                    case 48:
+                                        amount = 1000.0;
+                                        break;
+
+                                    default:
+                                        LOG.warning("Slot number "+e.getSlot()+" is not implemented");
+                                        player.closeInventory();
+                                        return;
+                                }
+
+                                ////////////////////////////////////////////
+                                // left click (remove)
+                                // right click (add)
+                                ////////////////////////////////////////////
+                                boolean isAdding = true;
+                                if(e.isLeftClick()) {
+                                   r = econ.withdrawPlayer(player, amount);
+                                    isAdding = false;
+                                }
+                                else if(e.isRightClick()) {
+                                    // check if the amount in the shop < amount ask if so just adjust amount
+                                    if(shopAdmin.getBalance() < amount) {
+                                        amount = shopAdmin.getBalance();
+                                        if(amount == 0) {
+                                            player.closeInventory();
+                                            playDenyShopSound(player);
+                                            return;
+                                        }
+                                    }
+                                    r = econ.depositPlayer(player, amount);
+                                }
+                                else {
+                                    LOG.warning("Not left not right... WTF? What a Terrible Failed!");
+                                    player.closeInventory();
+                                    return;
+                                }
+
+                                // Transaction was success add or remove from the shop
+                                if(r.transactionSuccess()) {
+                                    // Success so add or remove the amount
+                                    if(!isAdding) {
+                                        amount = 0 - amount;
+                                    }
+                                    shopAdmin.setBalance(shopAdmin.getBalance()+amount);
+                                    playTransactionCompleted(player);
+                                    sendNewBalancePlayer(player);
+                                } else {
+                                    player.closeInventory();
+                                    playDenyShopSound(player);
+                                    LOG.info(String.format("An error occurred: %s", r.errorMessage));
+                                    return;
+                                }
+
+                                break;
+
                             case 49: // Close interface
                                 player.closeInventory();
                                 return;
@@ -1500,7 +1570,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                             case 50: // ADD REMOVE ITEMS
                                 player.closeInventory(); // We need to close the other one
 
-                                if(havePermission(player, "admin")) {
+                                if(shopAdmin.isShopOwner(player)) {
                                     GuiCMD guiCMD = new GuiCMD(player, "addOrRemoveItems", location);
                                     guiCMD.render(shopAdmin);
                                 }
@@ -1526,8 +1596,9 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
                 case "changeshopitem":
                     // Only Admin can change item from a shop
-                    if(havePermission(player, "admin")) {
-                        shopAdmin = new ShopAdmin(player, getDataFolder(), location, true);
+                    shopAdmin = new ShopAdmin(player, getDataFolder(), location, true);
+                    if(shopAdmin.isShopOwner(player)) {
+
                         a_objShowItemShop.put(location, shopAdmin.getItemStack().getType());
 
                         // Inventory click
