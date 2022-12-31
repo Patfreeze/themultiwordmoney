@@ -5,3 +5,4 @@ baltopdelay: 20
 language: 'en-US'
 sTimezone: 'America/New_York'
 iAutoUpdatePlayer: -1
+iAuctionExpirationDay: 10

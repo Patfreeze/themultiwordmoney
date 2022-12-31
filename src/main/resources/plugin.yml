@@ -17,7 +17,7 @@
   commands:
     killedplayers:
       description: PayTo command.
-      aliases: [pay, thepay, thepayto]
+      aliases: []
       permission: themultiworldmoney.payto
       usage: |
         /payto [name] [amount]
@@ -27,6 +27,19 @@
       permission: themultiworldmoney.payto
       usage: |
         /payto [name] [amount]
+    auction:
+      description: Auction command.
+      aliases: [ac, ah, hdv, ach]
+      permission: themultiworldmoney.auction
+      usage: |
+        /auction
+        /auction [sell] [price] [amount]
+    shop:
+      description: Shop command.
+      aliases: []
+      permission: themultiworldmoney.createshop
+      usage: |
+        /shop
     themultiworldmoney:
       description: TheMultiWorldMoney command.
       aliases: [tmwm]
@@ -37,6 +50,7 @@
         /themultiworldmoney help
         /themultiworldmoney player
         /themultiworldmoney pay [player] [amount]
+        /themultiworldmoney create_shop
   permissions:
     killedplayers.*:
       description: Give acces to all killedplayers commands
@@ -46,6 +60,14 @@
       description: Allows you to use command use of killedplayers
       default: true
       permission-message: 'You do not have the permission killedplayers.use'
+    auction.*:
+      description: Give acces to all auction commands
+      children:
+        auction.use: true
+    auction.use:
+      description: Allows you to use command use of auction
+      default: true
+      permission-message: 'You do not have the permission auction.use'
     payto.*:
       description: Give acces to all payto commands
       children:
@@ -60,6 +82,8 @@
         themultiworldmoney.admin: false
         themultiworldmoney.mod: false
         themultiworldmoney.pay: true
+        themultiworldmoney.createshop: true
+        themultiworldmoney.auction: true
     themultiworldmoney.admin:
       description: Allows you to use command for administrator
       default: false
@@ -72,3 +96,11 @@
       description: Allows you to use command to pay someone
       default: true
       permission-message: 'You do not have the permission themultiworldmoney.pay'
+    themultiworldmoney.createshop:
+      description: Allows you to use command to create_shop
+      default: true
+      permission-message: 'You do not have the permission themultiworldmoney.createshop'
+    themultiworldmoney.auction:
+      description: Allows you to use command to auction
+      default: true
+      permission-message: 'You do not have the permission themultiworldmoney.auction'

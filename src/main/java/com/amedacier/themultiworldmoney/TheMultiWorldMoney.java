@@ -7,6 +7,7 @@ import net.milkbowl.vault.economy.EconomyResponse;
 import net.milkbowl.vault.permission.Permission;
 import org.bukkit.*;
 import org.bukkit.block.Barrel;
+import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -28,9 +29,9 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.*;
 
-import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -60,7 +61,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     // 2.3.4 lastest
 
     // VAULT
-    private static Economy econ = null;
+    public static Economy econ = null;
     private static Chat chat = null;
     private static Permission perms = null;
 
@@ -107,6 +108,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     private HashMap<Location, Material> a_objShowItemShop = new HashMap<Location, Material>();
     //private HashMap<UUID, Integer> a_AutoSaveHandler = new HashMap<UUID, Integer>();
     private HashMap<UUID, HandleMessage> a_handleChatMessage = new HashMap<UUID, HandleMessage>();
+    public static int expirationAuctionDay = 1;
 
     private static final String CONFIG_SEPARATOR = "###################################################################################";
 
@@ -122,6 +124,21 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         }
     }
      */
+
+    /**
+     * This will return the translate key otherwise the exact error
+     * @param sError
+     * @return
+     */
+    private String getTransactionErrorTranslated(String sError) {
+        switch(sError) {
+            case "Loan was not permitted!":
+                return "loadNotPermitted";
+
+            default:
+                return sError;
+        }
+    }
 
     private void messageToConsole(String sKeyMessage, String sWordReplace) {
 
@@ -412,7 +429,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         }
         a_sComments = new ArrayList<String>();
         a_sComments.add(CONFIG_SEPARATOR);
-        a_sComments.add("This is used to spam to console for debugging. I think you will not need");
+        a_sComments.add("This is used to spam the console for debugging. I think you will not need");
         a_sComments.add("to turn it on. ^_^' ");
         a_sComments.add(CONFIG_SEPARATOR);
         config.setComments("bDebugMode", a_sComments);
@@ -423,6 +440,21 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             config.set("iAutoUpdatePlayer", null);
             isNeedUpdate = true;
         }
+
+        // Added in v2.3.5
+        if(!config.isSet("iAuctionExpirationDay")) {
+            config.set("iAuctionExpirationDay", 10);
+            isNeedUpdate = true;
+        }
+        a_sComments = new ArrayList<String>();
+        a_sComments.add(CONFIG_SEPARATOR);
+        a_sComments.add("This is the number of day for all auctionHouse");
+        a_sComments.add("must be greater than 0, if not it will be 1 by default");
+        a_sComments.add(CONFIG_SEPARATOR);
+        config.setComments("iAuctionExpirationDay", a_sComments);
+
+        expirationAuctionDay = config.getInt("iAuctionExpirationDay");
+
         /*
         a_sComments = new ArrayList<String>();
         a_sComments.add(CONFIG_SEPARATOR);
@@ -547,6 +579,8 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         boolean bUsekilledPlayers = (bMod || p.hasPermission("killedplayers.use"));
 
         switch(sType) {
+            case "create_shop":
+                return p.hasPermission("themultiworldmoney.createshop");
             case "normal": // Mean always all players
                 return true;
             case "killedplayers": // OP ADMIN MOD killedplayers.use
@@ -757,8 +791,16 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
                 getCommand("themultiworldmoney").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
                 getCommand("tmwm").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
+
                 getCommand("payto").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
+
                 getCommand("killedplayers").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
+
+                getCommand("auction").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
+                getCommand("ac").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
+                getCommand("ah").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
+                getCommand("ach").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
+                getCommand("hdv").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
 
                 setupPermissions();
                 setupChat();
@@ -936,6 +978,10 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
             Sign signShop = (Sign) e.getClickedBlock().getState();
             if(ChatColor.stripColor(signShop.getLine(0)).equalsIgnoreCase("[tmwm]") && ChatColor.stripColor(signShop.getLine(1)).equalsIgnoreCase("shop")) {
+                if(ChatColor.stripColor(signShop.getLine(2)).trim().isEmpty() || ChatColor.stripColor(signShop.getLine(3)).trim().isEmpty()) {
+                    // not a real sign just ignore
+                   return;
+                }
                 // Left click
                 if (e.getAction() == Action.LEFT_CLICK_BLOCK) {
                     if (player.getGameMode() == GameMode.CREATIVE && player.getInventory().getItemInMainHand().getType() != Material.STICK) {
@@ -1021,13 +1067,33 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         }
     }
 
+    private void clearSign(Block block) {
+
+        if (block.getType().name().contains("_SIGN")) {
+
+            Sign sign = (Sign) block.getState();
+            sign.setGlowingText(false);
+
+            if(ChatColor.stripColor(sign.getLine(0)).equalsIgnoreCase("[tmwm]")) {
+                sign.setLine(0, " ");
+                sign.setLine(1, " ");
+
+                sign.setLine(2, " ");
+                sign.setLine(3, " ");
+
+                sign.update();
+            }
+
+        }
+    }
+
     /**
      * This is call when sign is change
      * @param e
      */
     @EventHandler
     public void onSignChange(SignChangeEvent e) {
-        if (havePermission(e.getPlayer(),"admin") && e.getPlayer().hasPermission("sign.color")) {
+        if (e.getPlayer().hasPermission("sign.color")) {
 
             if (ChatColor.stripColor(e.getLine(0)).equalsIgnoreCase("[tmwm]")) {
 
@@ -1038,7 +1104,12 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                 // Check the 2e line if not part of our list tell the player misspell
                 switch (secondLine) {
                     case "shop":
-                        // Good we have this
+                        // Good we have this but do we have permission
+                        if(!havePermission(player, "create_shop")) {
+                            sendMessageToPlayer(player, "havePermission", sErrorColor, "themultiworldmoney.createshop");
+                            clearSign(e.getBlock());
+                            return;
+                        }
                         break;
 
                     default:
@@ -1101,6 +1172,12 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         playNote(player, Instrument.XYLOPHONE, Note.natural(1, Note.Tone.E), 10);
     }
 
+    private void refreshChest54(Player player, Runnable runnable) {
+        GuiCMD guiCMD = new GuiCMD(player, "refresh54", player.getLocation());
+        guiCMD.render(runnable, 1, this);
+    }
+
+    //onClick chest
     @EventHandler
     private void inventoryClick(InventoryClickEvent e) {
         Player player = (Player) e.getWhoClicked();
@@ -1121,7 +1198,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                 if(iTask != 0) {
                     consoleLog("task is not 0");
                     // check if task is completed
-                    if(iTask%2 == 0) { // 50% chance to send the pleaseWait (less message to console)
+                    if(iTask%4 == 0) { // 25% chance to send the pleaseWait (less message to console)
                         sendMessageToPlayer(player, "pleaseWait", sOrangeColor);
                     }
                     return;
@@ -1147,9 +1224,248 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             consoleLog("SlotId: "+e.getSlot());
             consoleLog("getTYpe: "+e.getClickedInventory().getType());
             ShopAdmin shopAdmin = null;
+            AuctionHouse auctionHouse = null;
             int qts = 0;
+            GuiCMD guiCMD;
 
             switch (a_sSplitName[1].toLowerCase()) {
+
+                case "ahexpired":
+                    auctionHouse = new AuctionHouse(player, getDataFolder(), getGroupNameByWorld(player.getWorld().getName()));
+
+                    if(e.getClickedInventory().getType() == InventoryType.CHEST) {
+                        switch (e.getSlot()) {
+
+                            case 45: // Go back
+                                player.closeInventory();
+                                AuctionHouse finalAuctionHouse = auctionHouse;
+                                refreshChest54(player, new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        GuiCMD guiCMD = new GuiCMD(player, "auctionHouse", player.getLocation());
+                                        guiCMD.render(finalAuctionHouse, 1);
+                                    }
+                                });
+                                return;
+
+                            case 49: // close inventory
+                                player.closeInventory();
+                                return;
+
+                            default:
+                                // This is for slot between 0 and 35 inclusively otherwise nothing to do
+                                if(e.getSlot() >=0 && e.getSlot() <= 35 && !e.getClickedInventory().getItem(e.getSlot()).getItemMeta().getDisplayName().equalsIgnoreCase(" ")) {
+
+                                    ItemStack itemStackAh = e.getClickedInventory().getItem(e.getSlot()).clone();
+                                    ItemMeta meta = itemStackAh.getItemMeta();
+                                    String sKey = ChatColor.stripColor(meta.getLore().get(0));
+                                    meta.setLore(null);
+                                    itemStackAh.setItemMeta(meta);
+
+                                    // No room in inventory
+                                    if(!playerHaveSpaceInventory(player, itemStackAh, qts)) {
+                                        playDenyShopSound(player);
+                                        sendMessageToPlayer(player, "nospace", sErrorColor);
+                                        return;
+                                    }
+                                    consoleLog("The sKey: "+sKey);
+                                    if(auctionHouse.removeAuctionItemByItemId(sKey)) {
+                                        player.getInventory().addItem(itemStackAh);
+                                        player.closeInventory();
+
+                                        // re-open the GUI at page 1
+                                        guiCMD = new GuiCMD(player, "ahExpired", player.getLocation());
+                                        guiCMD.render(auctionHouse, 1);
+                                        return;
+                                    }
+                                }
+                                break;
+                        }
+                    }
+                    break;
+
+                case "confirmauction":
+                    auctionHouse = new AuctionHouse(player, getDataFolder(), getGroupNameByWorld(player.getWorld().getName()));
+
+                    if(e.getClickedInventory().getType() == InventoryType.CHEST) {
+                        switch (e.getSlot()) {
+                            // Confirm
+                            case 0:
+                            case 1:
+                            case 2:
+                                ItemStack itemStackAh = e.getClickedInventory().getItem(4).clone();
+                                ItemMeta meta = itemStackAh.getItemMeta();
+                                String sKey = ChatColor.stripColor(meta.getLore().get(0));
+                                meta.setLore(null);
+                                itemStackAh.setItemMeta(meta);
+
+                                // No room in inventory
+                                if(!playerHaveSpaceInventory(player, itemStackAh, qts)) {
+                                    playDenyShopSound(player);
+                                    sendMessageToPlayer(player, "nospace", sErrorColor);
+                                    return;
+                                }
+
+                                AuctionItem auctionItem = auctionHouse.getAuctionItemById(sKey);
+
+                                // We need to validate if the player have the money (or if is own item)
+                                if(econ.getBalance(player) < auctionItem.getPrice()) {
+                                    playDenyShopSound(player);
+                                    sendMessageToPlayer(player, "nomoney", sErrorColor);
+                                    return;
+                                }
+
+                                 // If transaction success remove from ah then give to player
+                                EconomyResponse r = econ.withdrawPlayer(player, auctionItem.getPrice());
+                                if(r.transactionSuccess()) {
+
+                                    // transaction completed... Give items to player
+                                    if(auctionHouse.removeAuctionItemByItemId(sKey)) {
+                                        player.getInventory().addItem(itemStackAh);
+                                        player.closeInventory();
+
+                                        playTransactionCompleted(player);
+                                        sendNewBalancePlayer(player);
+
+                                        // Give the balance to the group of the seller one
+                                        File file = getFileMoneyPlayerPerGroup(auctionItem.getPlayerOwner(), false);
+                                        FileConfiguration configP = YamlConfiguration.loadConfiguration(file);
+                                        handleGroupTransactionAh(
+                                            auctionItem.getPlayerOwner(),
+                                            configP,
+                                            getGroupNameByWorld(player.getWorld().getName()),
+                                            auctionItem.getPrice(),
+                                            auctionItem.getItemStack().getType().name()
+                                        );
+
+                                        // re-open the GUI at page 1
+                                        guiCMD = new GuiCMD(player, "auctionHouse", player.getLocation());
+                                        guiCMD.render(auctionHouse, 1);
+                                        return;
+                                    }
+                                    else {
+                                        // Item was sold before this transaction, put back player money
+                                        r = econ.depositPlayer(player, auctionItem.getPrice());
+                                        if(r.transactionSuccess()) {
+                                            playDenyShopSound(player);
+                                            sendMessageToPlayer(player, "itemSold", sErrorColor);
+                                        }
+                                        else {
+                                            playDenyShopSound(player);
+                                            sendMessageToPlayer(player, "transactionFailed", sErrorColor);
+                                            LOG.info(String.format("An error occured: %s", r.errorMessage));
+                                        }
+                                    }
+                                } else {
+                                    playDenyShopSound(player);
+                                    sendMessageToPlayer(player, "transactionFailed", sErrorColor);
+                                    LOG.info(String.format("An error occured: %s", r.errorMessage));
+                                    return;
+                                }
+                                break;
+
+                            // Cancel
+                            case 6:
+                            case 7:
+                            case 8:
+                                player.closeInventory();
+                                AuctionHouse finalAuctionHouse3 = auctionHouse;
+                                refreshChest54(player, new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        GuiCMD guiCMD = new GuiCMD(player, "auctionHouse", player.getLocation());
+                                        guiCMD.render(finalAuctionHouse3, 1);
+                                    }
+                                });
+                                break;
+                        }
+                    }
+
+                    break;
+
+                case "auctionhouse":
+                    auctionHouse = new AuctionHouse(player, getDataFolder(), getGroupNameByWorld(player.getWorld().getName()));
+
+                    if(e.getClickedInventory().getType() == InventoryType.CHEST) {
+                        switch (e.getSlot()) {
+
+                            case 46: // expired items
+                                player.closeInventory();
+
+                                AuctionHouse finalAuctionHouse1 = auctionHouse;
+                                refreshChest54(player, new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        GuiCMD guiCMD = new GuiCMD(player, "ahExpired", player.getLocation());
+                                        guiCMD.render(finalAuctionHouse1, 1);
+                                    }
+                                });
+                                return;
+
+                            case 49: // refresh ah
+                                player.closeInventory();
+                                AuctionHouse finalAuctionHouse2 = auctionHouse;
+                                refreshChest54(player, new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        GuiCMD guiCMD = new GuiCMD(player, "auctionHouse", player.getLocation());
+                                        guiCMD.render(finalAuctionHouse2, 1);
+                                    }
+                                });
+
+                                return;
+
+                            default:
+                                // This is for slot between 0 and 35 inclusively otherwise nothing to do
+                                if(e.getSlot() >=0 && e.getSlot() <= 35 && !e.getClickedInventory().getItem(e.getSlot()).getItemMeta().getDisplayName().equalsIgnoreCase(" ")) {
+
+                                    ItemStack itemStackAh = e.getClickedInventory().getItem(e.getSlot()).clone();
+                                    ItemMeta meta = itemStackAh.getItemMeta();
+                                    String sKey = ChatColor.stripColor(meta.getLore().get(0));
+                                    meta.setLore(null);
+                                    itemStackAh.setItemMeta(meta);
+
+
+                                    // No room in inventory
+                                    if(!playerHaveSpaceInventory(player, itemStackAh, qts)) {
+                                        playDenyShopSound(player);
+                                        sendMessageToPlayer(player, "nospace", sErrorColor);
+                                        return;
+                                    }
+
+                                    AuctionItem auctionItem = auctionHouse.getAuctionItemById(sKey);
+
+                                    // We need to validate if the player have the money (or if is own item)
+                                    if(econ.getBalance(player) < auctionItem.getPrice()) {
+                                        playDenyShopSound(player);
+                                        sendMessageToPlayer(player, "nomoney", sErrorColor);
+                                        return;
+                                    }
+
+                                    // Show confirm ah transaction
+                                    guiCMD = new GuiCMD(player, "confirmAuction", player.getLocation());
+                                    guiCMD.render(auctionItem);
+                                    return;
+
+                                    // If transaction success remove from ah then give to player
+
+                                    /*
+                                    if(auctionHouse.removeAuctionItemByItemId(sKey)) {
+                                        player.getInventory().addItem(itemStackAh);
+                                        player.closeInventory();
+
+                                        // re-open the GUI at page 1
+                                        guiCMD = new GuiCMD(player, "auctionHouse", player.getLocation());
+                                        guiCMD.render(auctionHouse, 1);
+                                        return;
+                                    }
+                                     */
+
+                                }
+                                break;
+                        }
+                    }
+                    break;
 
                 case "addorremoveitems":
                     shopAdmin = new ShopAdmin(player, getDataFolder(), location, true);
@@ -1161,7 +1477,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
                                 case 0: // Return
                                     player.closeInventory(); // We need to close the other one
-                                    GuiCMD guiCMD = new GuiCMD(player, "adminShop", location);
+                                    guiCMD = new GuiCMD(player, "adminShop", location);
                                     guiCMD.render(shopAdmin);
                                     return;
 
@@ -1257,7 +1573,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                             }
 
                             // ReRender gui
-                            GuiCMD guiCMD = new GuiCMD(player, "addOrRemoveItems", location);
+                            guiCMD = new GuiCMD(player, "addOrRemoveItems", location);
                             guiCMD.render(shopAdmin);
                         }
                     }
@@ -1284,7 +1600,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                         }
 
                         // ReRender gui
-                        GuiCMD guiCMD = new GuiCMD(player, "adminShop", location);
+                        guiCMD = new GuiCMD(player, "adminShop", location);
                         guiCMD.render(shopAdmin);
                     }
                     else if(e.getClickedInventory().getType() == InventoryType.CHEST) {
@@ -1303,7 +1619,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                                     }
 
                                     // Open another Gui to change item from the Player inventory
-                                    GuiCMD guiCMD = new GuiCMD(player, "changeShopItem", location);
+                                    guiCMD = new GuiCMD(player, "changeShopItem", location);
                                     guiCMD.render(shopAdmin);
                                     return;
                                 }
@@ -1514,6 +1830,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
                                     default:
                                         LOG.warning("Slot number "+e.getSlot()+" is not implemented");
+                                        sendMessageToPlayer(player, "error", sErrorColor);
                                         player.closeInventory();
                                         return;
                                 }
@@ -1524,23 +1841,26 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                                 ////////////////////////////////////////////
                                 boolean isAdding = true;
                                 if(e.isLeftClick()) {
-                                   r = econ.withdrawPlayer(player, amount);
-                                    isAdding = false;
-                                }
-                                else if(e.isRightClick()) {
                                     // check if the amount in the shop < amount ask if so just adjust amount
                                     if(shopAdmin.getBalance() < amount) {
                                         amount = shopAdmin.getBalance();
                                         if(amount == 0) {
                                             player.closeInventory();
                                             playDenyShopSound(player);
+                                            sendMessageToPlayer(player, "balanceEmpty", sErrorColor);
                                             return;
                                         }
                                     }
                                     r = econ.depositPlayer(player, amount);
+
+                                    isAdding = false;
+                                }
+                                else if(e.isRightClick()) {
+                                    r = econ.withdrawPlayer(player, amount);
                                 }
                                 else {
                                     LOG.warning("Not left not right... WTF? What a Terrible Failed!");
+                                    sendMessageToPlayer(player, "error", sErrorColor);
                                     player.closeInventory();
                                     return;
                                 }
@@ -1557,7 +1877,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                                 } else {
                                     player.closeInventory();
                                     playDenyShopSound(player);
-                                    LOG.info(String.format("An error occurred: %s", r.errorMessage));
+                                    sendMessageToPlayer(player, getTransactionErrorTranslated(r.errorMessage), sErrorColor);
                                     return;
                                 }
 
@@ -1571,7 +1891,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                                 player.closeInventory(); // We need to close the other one
 
                                 if(shopAdmin.isShopOwner(player)) {
-                                    GuiCMD guiCMD = new GuiCMD(player, "addOrRemoveItems", location);
+                                    guiCMD = new GuiCMD(player, "addOrRemoveItems", location);
                                     guiCMD.render(shopAdmin);
                                 }
                                 return; // We must return we reRender gui adminShop at the bottom
@@ -1588,7 +1908,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                         }
 
                         // ReRender gui
-                        GuiCMD guiCMD = new GuiCMD(player, "adminShop", location);
+                        guiCMD = new GuiCMD(player, "adminShop", location);
                         guiCMD.render(shopAdmin);
                     }
                    break;
@@ -1606,7 +1926,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                             switch(e.getSlot()) {
                                 case 0: // Go back;
                                     player.closeInventory();
-                                    GuiCMD guiCMD = new GuiCMD(player, "adminShop", location);
+                                    guiCMD = new GuiCMD(player, "adminShop", location);
                                     guiCMD.render(shopAdmin);
                                     return;
 
@@ -1627,7 +1947,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                                 shopAdmin.setItemStack(itemStackClone);
 
                                 // ReRender gui
-                                GuiCMD guiCMD = new GuiCMD(player, "changeShopItem", location);
+                                guiCMD = new GuiCMD(player, "changeShopItem", location);
                                 guiCMD.render(shopAdmin);
 
                             }
@@ -2585,15 +2905,6 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         sendMessageToPlayer(sender, "You cannot use this command in the console", "");
     }
 
-    private void reloadItemShop() {
-
-        for(Location locationBarrel : a_objShowItemShop.keySet()) {
-            // Find if en ent is over the barrel
-
-            // Not found create a new one
-        }
-
-    }
 
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 
@@ -2610,6 +2921,112 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
         switch(command.getName().toLowerCase()) {
 
+            case "auction":
+            case "ah":
+            case "ach":
+            case "ac":
+            case "hdv":
+
+                AuctionHouse auctionHouse = new AuctionHouse(player, getDataFolder(), getGroupNameByWorld(player.getWorld().getName()));
+                String commandAc = "";
+                if(args.length > 0) {
+                    commandAc = args[0];
+                }
+
+                switch(commandAc.toLowerCase()) {
+
+                    case "expiration":
+
+                        int iPage = 1;
+                        if(args.length > 1) {
+                            try {
+                                iPage = Integer.parseInt(args[1]);
+                                if(iPage < 1) {
+                                    iPage = 1;
+                                }
+                            }
+                            catch(NumberFormatException e) {
+                                iPage = 1;
+                            }
+                        }
+
+                        GuiCMD guiCMD = new GuiCMD(player, "ahExpired", player.getLocation());
+                        guiCMD.render(auctionHouse, iPage);
+                        return true;
+
+                    case "sell":
+
+                        if(args.length > 1) {
+                            try {
+                                double price = Double.parseDouble(args[1]);
+
+                                int iQts = 1;
+                                if(args.length > 2) {
+                                    try {
+                                        iQts = Integer.parseInt(args[2]);
+                                    }
+                                    catch(NumberFormatException e) {
+                                        iQts = 1;
+                                    }
+                                }
+
+                                ItemStack itemStackSell = player.getInventory().getItemInMainHand();
+                                if(itemStackSell == null || itemStackSell.getType().isAir()) {
+                                    sendMessageToPlayer(player, "nothingInMainHand", sErrorColor);
+                                    return true;
+                                }
+                                int maxQts = itemStackSell.getAmount();
+                                if(iQts > maxQts) {
+                                    iQts = maxQts;
+                                }
+
+                                itemStackSell = player.getInventory().getItemInMainHand().clone();
+                                itemStackSell.setAmount(iQts);
+                                player.getInventory().getItemInMainHand().setAmount(maxQts-iQts);
+
+                                Calendar calendar = Calendar.getInstance();
+                                calendar.setTimeZone(TimeZone.getTimeZone(sTimezone));
+
+                                AuctionItem auctionItem = new AuctionItem(player,itemStackSell, price, calendar.getTimeInMillis()+"");
+                                auctionHouse.addAuctionItem(auctionItem);
+                                auctionHouse.saveOnFile();
+                                sendMessageToPlayer(player, "itemAdded", sCorrectColor);
+                                return true;
+                            }
+                            catch (NullPointerException e) {
+                                e.printStackTrace();
+                            }
+                        }
+
+                        // If we reach here we got an error
+                        sendMessageToPlayer(player, "goodWayToDo", sErrorColor);
+                        sendMessageToPlayer(player, "/auction sell [price] [qts]", sOrangeColor);
+                        break;
+
+                    case "":
+                    default:
+
+                        iPage = 1;
+                        if(args.length > 0) {
+                            try {
+                                iPage = Integer.parseInt(args[0]);
+                                if(iPage < 1) {
+                                    iPage = 1;
+                                }
+                            }
+                            catch(NumberFormatException e) {
+                                iPage = 1;
+                            }
+                        }
+
+                        guiCMD = new GuiCMD(player, "auctionHouse", player.getLocation());
+                        guiCMD.render(auctionHouse, iPage);
+                }
+                return true;
+
+            case "shop":
+                player.performCommand("tmwm create_shop");
+                return true;
 
             case "killedplayers":
                 String worldGroup = "";
@@ -2723,18 +3140,16 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                                 return true;
                             }
 
-                            // Check permissions
-                            if(!(havePermission(sender, "admin") || havePermission(sender, "console"))) {
-                                // SEND MESSAGE NO OP
-                                sendMessageToPlayer(sender, "opPermission", sErrorColor);
+                            if(!havePermission(player, "create_shop")) {
+                                sendMessageToPlayer(player, "havePermission", sErrorColor, "themultiworldmoney.createshop");
                                 return true;
                             }
 
-                            // create the admin shop based on item in hand
+                            // create the admin shop based on item in hand (player can also create shop)
                             List<String> a_sWordReplace = new ArrayList<>();
                             a_sWordReplace.add(sErrorColor+"[TMWM]"+sOrangeColor);
                             a_sWordReplace.add(sErrorColor+"shop"+sOrangeColor);
-                            sendMessageToPlayer(sender, "placeSignOnBarrel", sOrangeColor, a_sWordReplace);
+                            sendMessageToPlayer(sender, "placeSign", sOrangeColor, a_sWordReplace);
                             //getBarrelShop(player);
                             return true;
 
@@ -2972,9 +3387,21 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     */
 
     private void createShop(Player player, Location locationBarrel) {
-        ShopAdmin shopAdmin = new ShopAdmin(player, getDataFolder(), locationBarrel, false);
+
+        // if file already exist load from it
+        String sLocation = locationBarrel.getBlockX()+"_"+locationBarrel.getBlockY()+"_"+locationBarrel.getBlockZ();
+        File file = new File(getDataFolder()+File.separator+"Shop", locationBarrel.getWorld().getName()+"_"+sLocation+".yml");
+
+        boolean bLoadFromFile = false;
+        if(file.exists()){
+            bLoadFromFile = true;
+        }
+
+        ShopAdmin shopAdmin = new ShopAdmin(player, getDataFolder(), locationBarrel, bLoadFromFile);
         a_objShowItemShop.put(locationBarrel, shopAdmin.getItemStack().getType());
-        shopAdmin.saveOnFile();
+        if(!bLoadFromFile) {
+            shopAdmin.saveOnFile();
+        }
         Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
             @Override
             public void run() {
@@ -3000,6 +3427,62 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         a_objShowItemShop.put(locationBarrel, shopAdmin.getItemStack().getType());
         GuiCMD guiCMD = new GuiCMD(player, "adminShop",locationBarrel);
         guiCMD.render(shopAdmin);
+    }
+
+    private void handleGroupTransactionAh(OfflinePlayer offlinePlayer, FileConfiguration config, String sGroupName, Double dAmount, String itemName) {
+
+        if(!sGroupName.contentEquals("[moneyGroup]") && !config.isDouble("Player."+sGroupName)) {
+            return;
+        }
+
+        if(offlinePlayer == null || offlinePlayer.getName() == null) {
+            return;
+        }
+        String offlinePlayerName = offlinePlayer.getName();
+
+        if(sGroupName.contentEquals("[moneyGroup]")) {
+
+            // we check current Group, if player was offline for a while it will be null
+            if(!config.isSet("Player.currentGroup")) {
+                LOG.warning("Unable to find the last group of world. "+offlinePlayerName+" is away for a while?");
+                return;
+            }
+            sGroupName = config.getString("Player.currentGroup");
+        }
+
+        Double dCurrent = config.getDouble("Player."+sGroupName);
+
+        Double dTotal = 0.0;
+        //boolean bPass = false;
+
+        String sType = "deposit";
+        switch(sType) {
+
+            case "withdraw":
+                //dTotal = dCurrent - dAmount;
+                //bPass = true;
+
+            case "deposit":
+
+                //if(!bPass) {
+                    dTotal = dCurrent + dAmount;
+                //}
+                saveMoneyPlayerInGroup(offlinePlayer, sGroupName, dTotal, false);
+                loadMoneyPlayerPerGroup(offlinePlayer, sGroupName);
+
+                List<String> a_sReplace = new ArrayList<String>();
+                a_sReplace.add(sYellowColor+dAmount+sCorrectColor);
+                a_sReplace.add(sErrorColor+itemName+sCorrectColor);
+                a_sReplace.add(sErrorColor+sGroupName);
+
+                if(offlinePlayer.isOnline()) {
+                    sendMessageToPlayer((Player) offlinePlayer, "newTransactionIn", sErrorColor, a_sReplace);
+                }
+                return;
+
+            default:
+                return;
+        }
     }
 
     private void handleGroupTransaction(CommandSender sender, OfflinePlayer offlinePlayer, FileConfiguration config, String sGroupName, String sType, Double dAmount) {

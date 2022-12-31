@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.Plugin;
 
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
@@ -25,7 +26,8 @@ public class GuiCMD {
     private static final String sColorGold = "§6";
     private static final String sColorRed = "§4";
     private static final String sColorGreen = "§2";
-
+    private static final String sColorObfuscate = "§0§k";
+    private Material materialDefault = Material.GLASS_PANE;
 
     private static final DecimalFormat df = new DecimalFormat("0.00");
 
@@ -50,12 +52,16 @@ public class GuiCMD {
         // Multiple of 9 so : 9, 18, 27,  36, 45, max 54
         switch(this.sType) {
 
+            case "ahExpired":
+            case "auctionHouse":
             case "adminShop":
+            case "refresh54":
                 return 54;
 
             case "addOrRemoveItems":
                 return 27;
 
+            case "confirmAuction":
             case "changeShopItem":
             default:
                return 9;
@@ -63,10 +69,17 @@ public class GuiCMD {
 
     }
 
+    private void placeVoidItemsMaterial(Material material) {
+        ArrayList<String> lore = new ArrayList<String>();
+        for(int i=0; i<this.getSize(); i++) {
+            placeItem(i, material, " ", lore, 1, false);
+        }
+    }
+
     private void placeVoidItems() {
         ArrayList<String> lore = new ArrayList<String>();
         for(int i=0; i<this.getSize(); i++) {
-            placeItem(i, Material.GLASS_PANE, " ", lore, 1, false);
+            placeItem(i, materialDefault, " ", lore, 1, false);
         }
     }
 
@@ -137,6 +150,176 @@ public class GuiCMD {
         ItemStack itemStackShow = shopAdmin.getItemStack().clone();
 
         placeItem(4, itemStackShow, "", lore);
+    }
+
+    private void getAhExpired(AuctionHouse auctionHouse, int iPage) {
+        // Init Lore for any Item (reset on each item)
+        ArrayList<String> lore;
+
+        // SEPARATION
+        ItemStack itemStackSeparator = new ItemStack(Material.YELLOW_STAINED_GLASS_PANE);
+        ItemStack itemStackSeparator2 = new ItemStack(Material.BROWN_STAINED_GLASS_PANE);
+        for(int i=36; i<=44; i++) {
+            placeItem(i, itemStackSeparator, " ", null);
+            placeItem(i+9, itemStackSeparator2, " ", null);
+        }
+
+        /////////////////////////////////////////////////////////
+        // SECTION ITEMS / max 45 per page 0 to 44
+        /////////////////////////////////////////////////////////
+
+        //separate items per page
+        HashMap<Integer, AuctionItem> a_auctionItems = auctionHouse.getAuctionItems(AhItemsType.EXPIRED);
+
+        int iMaxPerPage = 36;
+        int iMaxPage = 1;
+        if(a_auctionItems.size() > iMaxPerPage) {
+            iMaxPage = (int) Math.ceil(a_auctionItems.size() / 36.0);
+        }
+
+        int iSmallestItem = (iPage*iMaxPerPage)-iMaxPerPage;
+        int iLargestItem = iPage*iMaxPerPage;
+
+        int iPos = 0;
+        int iItemCount = 0;
+        for(int auctionItemKey : a_auctionItems.keySet()) {
+
+            if(iItemCount >= iSmallestItem && iItemCount < iLargestItem) {
+                lore = new ArrayList<>();
+                AuctionItem auctionItem = a_auctionItems.get(auctionItemKey);
+
+                // First line an id key string to remove item
+                lore.add(sColorObfuscate+auctionItem.getId());
+                lore.add(sColorGold+TheMultiWorldMoney.getTranslatedKeys("price")+": " + TheMultiWorldMoney.econ.format(auctionItem.getPrice()));
+                lore.add(TheMultiWorldMoney.getTranslatedKeys("owner")+": " + auctionItem.getPlayerOwner().getName());
+                lore.add(sColorRed+TheMultiWorldMoney.getTranslatedKeys("expiration")+": " + auctionItem.getExpirationDate()); // Calculate time remain
+                placeItem(iPos, auctionItem.getItemStack(), "", lore);
+                iPos++;
+            }
+            iItemCount++;
+
+        }
+
+        /////////////////////////////////////////////////////////
+        // SECTION MENU BOTTOM
+        /////////////////////////////////////////////////////////
+
+        ItemStack itemStackMenu;
+
+        // Go back
+        lore = new ArrayList<>();
+        placeItem(45, Material.BAMBOO, TheMultiWorldMoney.getTranslatedKeys("goBack"), null, 1, false);
+
+        // Close
+        lore = new ArrayList<>();
+        placeItem(49, Material.STRUCTURE_VOID, TheMultiWorldMoney.getTranslatedKeys("close"), lore, 1, false);
+
+        // Pages <- 1 ->
+        lore = new ArrayList<>();
+        lore.add(TheMultiWorldMoney.getTranslatedKeys("clickLeft"));
+        itemStackMenu = new ItemStack(Material.PAPER);
+        if(iPage != 1) {
+            placeItem(52, itemStackMenu, "§lPage " + (iPage - 1), lore);
+        }
+
+        if(iPage < iMaxPage) {
+            placeItem(53, itemStackMenu, "§lPage " + (iPage+1), lore);
+        }
+
+    }
+
+    private void getAuctionHouse(AuctionHouse auctionHouse, int iPage) {
+        // Init Lore for any Item (reset on each item)
+        ArrayList<String> lore;
+
+        // SEPARATION
+        ItemStack itemStackSeparator = new ItemStack(Material.YELLOW_STAINED_GLASS_PANE);
+        ItemStack itemStackSeparator2 = new ItemStack(Material.BROWN_STAINED_GLASS_PANE);
+        for(int i=36; i<=44; i++) {
+            placeItem(i, itemStackSeparator, " ", null);
+            placeItem(i+9, itemStackSeparator2, " ", null);
+        }
+
+        /////////////////////////////////////////////////////////
+        // SECTION ITEMS / max 45 per page 0 to 44
+        /////////////////////////////////////////////////////////
+        
+        //separate items per page
+        HashMap<Integer, AuctionItem> a_auctionItems = auctionHouse.getAuctionItems(AhItemsType.ON_SOLD);
+
+        int iMaxPerPage = 36;
+        int iMaxPage = 1;
+        if(a_auctionItems.size() > iMaxPerPage) {
+            iMaxPage = (int) Math.ceil(a_auctionItems.size() / 36.0);
+        }
+
+        int iSmallestItem = (iPage*iMaxPerPage)-iMaxPerPage;
+        int iLargestItem = iPage*iMaxPerPage;
+
+        System.out.println("SizeItems: "+a_auctionItems.size());
+
+        System.out.println("iSmallestItem: "+iSmallestItem);
+        System.out.println("iLargestItem: "+iLargestItem);
+
+
+        int iPos = 0;
+        int iItemCount = 0;
+        for(int auctionItemKey : a_auctionItems.keySet()) {
+
+            if(iItemCount >= iSmallestItem && iItemCount < iLargestItem) {
+                lore = new ArrayList<>();
+                AuctionItem auctionItem = a_auctionItems.get(auctionItemKey);
+
+                // First line an id key string to remove item
+                lore.add(sColorObfuscate+auctionItem.getId());
+                lore.add(sColorGold+TheMultiWorldMoney.getTranslatedKeys("price")+": " + TheMultiWorldMoney.econ.format(auctionItem.getPrice()));
+                lore.add(TheMultiWorldMoney.getTranslatedKeys("owner")+": " + auctionItem.getPlayerOwner().getName());
+                lore.add(sColorRed+TheMultiWorldMoney.getTranslatedKeys("expiration")+": " + auctionItem.getExpirationDate()); // Calculate time remain
+                placeItem(iPos, auctionItem.getItemStack(), "", lore);
+                iPos++;
+            }
+            iItemCount++;
+
+        }
+
+        /////////////////////////////////////////////////////////
+        // SECTION MENU BOTTOM
+        /////////////////////////////////////////////////////////
+
+        // Info Player
+        lore = new ArrayList<>();
+        lore.add(sColorGold+"§lBalance:§r "+sColorGold+TheMultiWorldMoney.econ.format(TheMultiWorldMoney.econ.getBalance(player)));
+        ItemStack itemStackMenu = new ItemStack(Material.GOLD_NUGGET);
+        placeItem(45, itemStackMenu, "§lINFO", lore);
+
+        // Item Expired
+        lore = new ArrayList<>();
+        lore.add(TheMultiWorldMoney.getTranslatedKeys("clickLeft"));
+        int iExpiredItem = auctionHouse.getAuctionItems(AhItemsType.EXPIRED).size();
+        placeItem(46, Material.ENDER_CHEST, sColorRed+"§l"+TheMultiWorldMoney.getTranslatedKeys("expiredItems")+"§r§c ("+iExpiredItem+")", lore, iExpiredItem == 0 ? 1 : iExpiredItem, true);
+
+        // Refresh
+        lore = new ArrayList<>();
+        lore.add(sColorGreen+TheMultiWorldMoney.getTranslatedKeys("itemInHand"));
+        lore.add("/auction sell "+sColorGold+"[PRICE] "+sColorGreen+"[QTS]");
+        lore.add("/ah sell "+sColorGold+"[PRICE] "+sColorGreen+"[QTS]");
+        lore.add("/hdv sell "+sColorGold+"[PRICE] "+sColorGreen+"[QTS]");
+        itemStackMenu = new ItemStack(Material.SUNFLOWER);
+        placeItem(49, itemStackMenu, sColorRed+"§l"+TheMultiWorldMoney.getTranslatedKeys("refresh"), lore);
+
+
+        // Pages <- 1 ->
+        lore = new ArrayList<>();
+        lore.add(TheMultiWorldMoney.getTranslatedKeys("clickLeft"));
+        itemStackMenu = new ItemStack(Material.PAPER);
+        if(iPage != 1) {
+            placeItem(52, itemStackMenu, "§lPage " + (iPage - 1), lore);
+        }
+
+        if(iPage < iMaxPage) {
+            placeItem(53, itemStackMenu, "§lPage " + (iPage+1), lore);
+        }
+
     }
 
     private void getAdminShop(ShopAdmin shopAdmin) {
@@ -317,17 +500,17 @@ public class GuiCMD {
                 lore.add("§4"+TheMultiWorldMoney.getTranslatedKeys("removeLeftClick")+" "+TheMultiWorldMoney.getTranslatedKeys("money"));
                 lore.add("§2"+TheMultiWorldMoney.getTranslatedKeys("addRightClick")+" "+TheMultiWorldMoney.getTranslatedKeys("money"));
 
-                sDisplayName = "§9Balance  +-"+sColorGold+"10";
+                sDisplayName = "§9Balance  -+"+sColorGold+"10";
                 itemStackShop.setType(Material.GOLD_NUGGET);
                 itemStackShop.setAmount(1);
                 placeItem(46, itemStackShop, sDisplayName, lore);
 
-                sDisplayName = "§9Balance  +-"+sColorGold+"100";
+                sDisplayName = "§9Balance  -+"+sColorGold+"100";
                 itemStackShop.setType(Material.GOLD_INGOT);
                 itemStackShop.setAmount(1);
                 placeItem(47, itemStackShop, sDisplayName, lore);
 
-                sDisplayName = "§9Balance  +-"+sColorGold+"1000";
+                sDisplayName = "§9Balance  -+"+sColorGold+"1000";
                 itemStackShop.setType(Material.GOLD_BLOCK);
                 itemStackShop.setAmount(1);
                 placeItem(48, itemStackShop, sDisplayName, lore);
@@ -360,22 +543,102 @@ public class GuiCMD {
         }
     }
 
-    public void render(Object shopAdmin) {
+    private void scheduleRefresh(Plugin plugin, Material material, int iTimer) {
+
+        Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, new Runnable() {
+            @Override
+            public void run() {
+                placeVoidItemsMaterial(material);
+            }
+        }, iTimer);
+    }
+
+    private void getRefresh54(Plugin plugin, Runnable runnable) {
+
+        Material matChange = Material.LIGHT_BLUE_STAINED_GLASS_PANE;
+
+        scheduleRefresh(plugin, matChange, 1);
+        scheduleRefresh(plugin, materialDefault, 3);
+        scheduleRefresh(plugin, matChange, 5);
+        scheduleRefresh(plugin, materialDefault, 7);
+        scheduleRefresh(plugin, matChange, 9);
+        scheduleRefresh(plugin, materialDefault, 11);
+
+        Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, new Runnable() {
+            @Override
+            public void run() {
+                runnable.run();
+            }
+        }, 13);
+
+    }
+
+    private void getConfirmAuction(AuctionItem auctionItem) {
+        ArrayList<String> lore;
+
+        lore = new ArrayList<>();
+        String sConfirm = "§a"+TheMultiWorldMoney.getTranslatedKeys("confirm");
+        placeItem(0, Material.GREEN_STAINED_GLASS_PANE, sConfirm, lore, 1, false);
+        placeItem(1, Material.GREEN_STAINED_GLASS_PANE, sConfirm, lore, 1, false);
+        placeItem(2, Material.GREEN_STAINED_GLASS_PANE, sConfirm, lore, 1, false);
+
+        // First line an id key string to remove item
+        lore = new ArrayList<>();
+        lore.add(sColorObfuscate+auctionItem.getId());
+        lore.add(sColorGold+TheMultiWorldMoney.getTranslatedKeys("price")+": " + TheMultiWorldMoney.econ.format(auctionItem.getPrice()));
+        lore.add(TheMultiWorldMoney.getTranslatedKeys("owner")+": " + auctionItem.getPlayerOwner().getName());
+        lore.add(sColorRed+TheMultiWorldMoney.getTranslatedKeys("expiration")+": " + auctionItem.getExpirationDate()); // Calculate time remain
+        placeItem(4, auctionItem.getItemStack(), "", lore);
+
+        lore = new ArrayList<>();
+        String sCancel = "§c"+TheMultiWorldMoney.getTranslatedKeys("cancel");
+        placeItem(6, Material.RED_STAINED_GLASS_PANE, sCancel, lore, 1, false);
+        placeItem(7, Material.RED_STAINED_GLASS_PANE, sCancel, lore, 1, false);
+        placeItem(8, Material.RED_STAINED_GLASS_PANE, sCancel, lore, 1, false);
+    }
+
+    public void render(Object myObject) {
+        render(myObject, 0, null);
+    }
+
+    public void render(Object myObject, int iPage) {
+        render(myObject, iPage, null);
+    }
+
+    public void render(Object myObject, int iPage, Plugin plugin) {
         if(player != null) {
             // First we place all void items
             placeVoidItems();
 
             switch(sType) {
                 case "addOrRemoveItems":
-                    getAddOrRemoveItems((ShopAdmin) shopAdmin);
+                    getAddOrRemoveItems((ShopAdmin) myObject);
                     break;
 
                 case "adminShop":
-                    getAdminShop((ShopAdmin) shopAdmin);
+                    getAdminShop((ShopAdmin) myObject);
+                    break;
+
+                case "auctionHouse":
+                    getAuctionHouse((AuctionHouse) myObject, iPage);
+                    break;
+
+                case "ahExpired":
+                    getAhExpired((AuctionHouse) myObject, iPage);
                     break;
 
                 case "changeShopItem":
-                    getChangeShopItem((ShopAdmin) shopAdmin);
+                    getChangeShopItem((ShopAdmin) myObject);
+                    break;
+
+                case "confirmAuction":
+                    getConfirmAuction((AuctionItem) myObject);
+                    break;
+
+                case "refresh54":
+                    if(myObject instanceof Runnable) {
+                        getRefresh54(plugin, (Runnable) myObject);
+                    }
                     break;
             }
 

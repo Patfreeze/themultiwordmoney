@@ -22,8 +22,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
 
-    String[] a_sLevel_1 = {"help","group","baltop", "pay"};
-    String[] a_sLevel_1_OP = {"player", "create_shop"}; // "show_armor_stand"
+    String[] a_sLevel_1 = {"help","group","baltop", "pay", "create_shop"}; // if you add stuff here, also add in permission
+    String[] a_sLevel_1_OP = {"player"}; // "show_armor_stand"
 
     File dataFolder;
 
@@ -61,7 +61,12 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
         boolean bUsekilledPlayers = (bMod || p.hasPermission("killedplayers.use"));
 
         switch(sType) {
+            case "create_shop":
+                return p.hasPermission("themultiworldmoney.createshop");
             case "normal": // Mean always all players
+            case "help":
+            case "group":
+            case "baltop":
                 return true;
             case "killedplayers": // OP ADMIN MOD killedplayers.use
                 return bUsekilledPlayers;
@@ -71,9 +76,8 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
                 return bMod;
             case "admin": // OP ADMIN
                 return bAdmin;
-            default:
-                System.console().printf("%s is not defined in permission", sType);
-                return false;
+            default: // by default is a permission check
+                return p.hasPermission(sType);
         }
     }
 
@@ -97,6 +101,16 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
 
 
         switch(cmd.getName().toLowerCase()) {
+
+            case "auction":
+            case "ah":
+            case "ach":
+            case "ac":
+            case "hdv":
+                return null;
+
+            case "shop":
+                return null;
 
             case "killedplayers":
                 a_groupList = new ArrayList<>();
@@ -164,8 +178,10 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
                         }
 
                         for(String sLevel : a_sLevel_1) {
-                            if(args[0].equalsIgnoreCase("") || sLevel.startsWith(args[0]) || sLevel.toLowerCase().startsWith(args[0])) {
-                                list.add(sLevel);
+                            if(havePermission((Player) sender, sLevel)) {
+                                if (args[0].equalsIgnoreCase("") || sLevel.startsWith(args[0]) || sLevel.toLowerCase().startsWith(args[0])) {
+                                    list.add(sLevel);
+                                }
                             }
                         }
                         return list;
