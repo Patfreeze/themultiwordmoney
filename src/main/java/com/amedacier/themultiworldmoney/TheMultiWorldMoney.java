@@ -52,9 +52,10 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         - Force EssentialX to hook on event UserBalanceUpdateEvent to update the balance in the good group (player offline)
         With this event, no need anymore the auto-save.
         - Removing the auto-save, useless now
-        - Adding SHOP admin
-        - TODO: Adding AuctionHouse to sell/buy stuff player (will need to pass groupWorld)
-        - TODO: Check for transaction... Seems we made 3 transactions on changing world...
+        - Adding SHOP admin/player handled per group of world
+        - Adding AuctionHouse to sell/buy stuff player handled per group of world
+        - Adding some missing translation
+        - Some bugs fix
 
      */
 
@@ -262,6 +263,13 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             messageToConsole(sKeyMessage, sWordReplace);
         }
     }
+
+    public static final String capitalize(String str)
+    {
+        if (str == null || str.length() == 0) return str;
+        return str.substring(0, 1).toUpperCase() + str.substring(1);
+    }
+
 
     public static String getTranslatedKeys(String sKeyMessage) {
 
@@ -542,6 +550,9 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         for(String sGroup : dataFile.getConfigurationSection("group").getKeys(false)){
             if(!dataFile.isSet("groupinfo."+sGroup)) {
                 dataFile.set("groupinfo."+sGroup+".startingbalance", 0.0);
+            }
+            if(!dataFile.isSet("groupinfo."+sGroup+".auctionHouseEnable")) {
+                dataFile.set("groupinfo."+sGroup+".auctionHouseEnable", true);
             }
         }
 
@@ -1172,6 +1183,14 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         playNote(player, Instrument.XYLOPHONE, Note.natural(1, Note.Tone.E), 10);
     }
 
+    private void playTransactionRemove(Player player) {
+        playNote(player, Instrument.XYLOPHONE, Note.natural(1, Note.Tone.E), 1);
+        playNote(player, Instrument.XYLOPHONE, Note.natural(1, Note.Tone.D), 3);
+        playNote(player, Instrument.XYLOPHONE, Note.natural(1, Note.Tone.C), 5);
+        playNote(player, Instrument.XYLOPHONE, Note.natural(1, Note.Tone.B), 7);
+        playNote(player, Instrument.XYLOPHONE, Note.natural(1, Note.Tone.A), 10);
+    }
+
     private void refreshChest54(Player player, Runnable runnable) {
         GuiCMD guiCMD = new GuiCMD(player, "refresh54", player.getLocation());
         guiCMD.render(runnable, 1, this);
@@ -1308,10 +1327,41 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
                                 AuctionItem auctionItem = auctionHouse.getAuctionItemById(sKey);
 
+                                if(auctionItem == null) {
+                                    playDenyShopSound(player);
+                                    sendMessageToPlayer(player, "itemSold", sErrorColor);
+
+                                    player.closeInventory();
+                                    AuctionHouse finalAuctionHouse3 = auctionHouse;
+                                    refreshChest54(player, new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            GuiCMD guiCMD = new GuiCMD(player, "auctionHouse", player.getLocation());
+                                            guiCMD.render(finalAuctionHouse3, 1);
+                                        }
+                                    });
+
+                                    return;
+                                }
+
                                 // We need to validate if the player have the money (or if is own item)
-                                if(econ.getBalance(player) < auctionItem.getPrice()) {
+                                if(player.getUniqueId() != auctionItem.getPlayerOwner().getUniqueId() && econ.getBalance(player) < auctionItem.getPrice()) {
                                     playDenyShopSound(player);
                                     sendMessageToPlayer(player, "nomoney", sErrorColor);
+                                    return;
+                                }
+
+                                // If we remove items because we are the owner, do not make any transaction
+                                if(player.getUniqueId() == auctionItem.getPlayerOwner().getUniqueId()) {
+                                    if(auctionHouse.removeAuctionItemByItemId(sKey)) {
+                                        player.getInventory().addItem(itemStackAh);
+                                        player.closeInventory();
+                                        playTransactionRemove(player);
+
+                                        // re-open the GUI at page 1
+                                        guiCMD = new GuiCMD(player, "auctionHouse", player.getLocation());
+                                        guiCMD.render(auctionHouse, 1);
+                                    }
                                     return;
                                 }
 
@@ -1353,13 +1403,13 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                                         else {
                                             playDenyShopSound(player);
                                             sendMessageToPlayer(player, "transactionFailed", sErrorColor);
-                                            LOG.info(String.format("An error occured: %s", r.errorMessage));
+                                            LOG.info(String.format("An error occurred: %s", r.errorMessage));
                                         }
                                     }
                                 } else {
                                     playDenyShopSound(player);
                                     sendMessageToPlayer(player, "transactionFailed", sErrorColor);
-                                    LOG.info(String.format("An error occured: %s", r.errorMessage));
+                                    LOG.info(String.format("An error occurred: %s", r.errorMessage));
                                     return;
                                 }
                                 break;
@@ -1415,12 +1465,35 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
                                 return;
 
+                            case 52:
+                            case 53:
+
+                                int iPage = 1;
+
+                                ItemStack itemStackAh = e.getClickedInventory().getItem(e.getSlot()).clone();
+                                ItemMeta meta = itemStackAh.getItemMeta();
+                                iPage = Integer.parseInt(ChatColor.stripColor(meta.getLore().get(1)));
+
+                                player.closeInventory();
+                                AuctionHouse finalAuctionHouse4 = auctionHouse;
+                                int finalIPage = iPage;
+                                refreshChest54(player, new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        GuiCMD guiCMD = new GuiCMD(player, "auctionHouse", player.getLocation());
+                                        guiCMD.render(finalAuctionHouse4, finalIPage);
+                                    }
+                                });
+
+
+                                return;
+
                             default:
                                 // This is for slot between 0 and 35 inclusively otherwise nothing to do
                                 if(e.getSlot() >=0 && e.getSlot() <= 35 && !e.getClickedInventory().getItem(e.getSlot()).getItemMeta().getDisplayName().equalsIgnoreCase(" ")) {
 
-                                    ItemStack itemStackAh = e.getClickedInventory().getItem(e.getSlot()).clone();
-                                    ItemMeta meta = itemStackAh.getItemMeta();
+                                    itemStackAh = e.getClickedInventory().getItem(e.getSlot()).clone();
+                                    meta = itemStackAh.getItemMeta();
                                     String sKey = ChatColor.stripColor(meta.getLore().get(0));
                                     meta.setLore(null);
                                     itemStackAh.setItemMeta(meta);
@@ -1435,8 +1508,14 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
                                     AuctionItem auctionItem = auctionHouse.getAuctionItemById(sKey);
 
+                                    if(auctionItem == null) {
+                                        playDenyShopSound(player);
+                                        sendMessageToPlayer(player, "itemSold", sErrorColor);
+                                        return;
+                                    }
+
                                     // We need to validate if the player have the money (or if is own item)
-                                    if(econ.getBalance(player) < auctionItem.getPrice()) {
+                                    if(player.getUniqueId() != auctionItem.getPlayerOwner().getUniqueId() &&econ.getBalance(player) < auctionItem.getPrice()) {
                                         playDenyShopSound(player);
                                         sendMessageToPlayer(player, "nomoney", sErrorColor);
                                         return;
@@ -1759,7 +1838,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                                 // if not op, we need to check if this shop has enough money
                                 if(!shopAdmin.hasInfinity() && shopAdmin.getBalance() < qts*shopAdmin.getSellPrice()) {
                                     playDenyShopSound(player);
-                                    sendMessageToPlayer(player, "outOfOrder", sErrorColor);
+                                    sendMessageToPlayer(player, "outOfMoney", sErrorColor);
                                     return;
                                 }
 
@@ -2235,7 +2314,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         if(!config.isSet("Player."+sGroup)){
 
             // Group not set, we take amount from config
-            dAmount = 0f;
+            dAmount = 0.0;
             if(dataFile.isSet("groupinfo."+sGroup+".startingbalance")) {
                 dAmount = dataFile.getDouble("groupinfo."+sGroup+".startingbalance");
             }
@@ -2244,6 +2323,10 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         }
         else {
             dAmount = config.getDouble("Player."+sGroup);
+        }
+
+        if(!config.isSet("Auction."+sGroup+".maxItem")) {
+            config.set("Auction."+sGroup+".maxItem", 3);
         }
 
         // New param so we update every time we load a new group
@@ -2296,7 +2379,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             }
 
             // we take the default from the config amount
-            double dAmount = 0f;
+            double dAmount = 0.0;
             if(dataFile.isSet("groupinfo.default.startingbalance")) {
                 dAmount = dataFile.getDouble("groupinfo.default.startingbalance");
             }
@@ -2337,7 +2420,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             }
 
             // we take the default from the config amount
-            double dAmount = 0f;
+            double dAmount = 0.0;
             if(dataFile.isSet("groupinfo.default.startingbalance")) {
                 dAmount = dataFile.getDouble("groupinfo.default.startingbalance");
             }
@@ -2389,6 +2472,22 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             configBaltop.save(baltopf);
             //messageToConsole("saveMoneyPlayerPerGroup Player."+sGroupFrom+": "+ dAmount);
             //messageToConsole("a_AutoSaveHandler: "+a_AutoSaveHandler.toString());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void saveAuctionLimitForGroup(OfflinePlayer player, String sGroup, int dAmount) {
+        // Save data group
+        FileConfiguration config = null;
+        File file = getFileMoneyPlayerPerGroup(player, true);
+
+        config = YamlConfiguration.loadConfiguration(file);
+        config.set("Auction."+sGroup+".maxItem", dAmount);
+
+        try {
+            config.save(file);
+            configBaltop.save(baltopf);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -2695,10 +2794,13 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         sender.sendMessage(sPluginName);
         if(sender.isOp()) {
             sStartLine = "/tmwm player";
-            sender.sendMessage(sErrorColor+sStartLine+" [PLAYERNAME] list\n"+sCorrectColor+"  \\-- List of money by group");
-            sender.sendMessage(sErrorColor+sStartLine+" [PLAYERNAME] [GROUP] deposit [AMOUNT]\n"+sCorrectColor+"  \\-- deposit to group");
-            sender.sendMessage(sErrorColor+sStartLine+" [PLAYERNAME] [GROUP] withdraw [AMOUNT]\n"+sCorrectColor+"  \\-- withdraw from group");
-            sender.sendMessage(sErrorColor+sStartLine+" [PLAYERNAME] [GROUP] set [AMOUNT]\n"+sCorrectColor+"  \\-- set exact money to group");
+            sender.sendMessage(sErrorColor+sStartLine+" [PLAYERNAME] list\n"+sCorrectColor+"  \\-- "+getTranslatedKeys("helpList"));
+            sender.sendMessage("\n"+sErrorColor+sStartLine+" [PLAYERNAME] [GROUP] deposit [AMOUNT]\n"+sCorrectColor+"  \\-- "+getTranslatedKeys("helpDeposit"));
+            sender.sendMessage("\n"+sErrorColor+sStartLine+" [PLAYERNAME] [GROUP] withdraw [AMOUNT]\n"+sCorrectColor+"  \\-- "+getTranslatedKeys("helpWithdraw"));
+            sender.sendMessage("\n"+sErrorColor+sStartLine+" [PLAYERNAME] [GROUP] set [AMOUNT]\n"+sCorrectColor+"  \\-- "+getTranslatedKeys("helpSet"));
+            sender.sendMessage("\n"+sErrorColor+sStartLine+" [PLAYERNAME] [GROUP] set_auction_limit [AMOUNT]\n"+sCorrectColor+"  \\-- "+getTranslatedKeys("helpSetAuctionLimit"));
+            sender.sendMessage(".");
+            sStartLine = "";
         }
         else {
             sendMessageToPlayer(sender, "opPermission", sErrorColor);
@@ -2927,6 +3029,13 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             case "ac":
             case "hdv":
 
+                // first we check is enabled here by default is true if false just send message
+                String sGroupWorld = getGroupNameByWorld(player.getWorld().getName());
+                if(dataFile.isSet("groupinfo."+sGroupWorld+".auctionHouseEnable") && !dataFile.getBoolean("groupinfo."+sGroupWorld+".auctionHouseEnable")) {
+                    sendMessageToPlayer(player, "auctionNotActivated", sOrangeColor);
+                    return true;
+                }
+
                 AuctionHouse auctionHouse = new AuctionHouse(player, getDataFolder(), getGroupNameByWorld(player.getWorld().getName()));
                 String commandAc = "";
                 if(args.length > 0) {
@@ -2955,6 +3064,21 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                         return true;
 
                     case "sell":
+
+                        File file = getFileMoneyPlayerPerGroup(player, false);
+                        FileConfiguration config = YamlConfiguration.loadConfiguration(file);
+
+                        // we check if we have reach the limit
+                        int iLimit = 3;
+                        if(config.isSet("Auction."+sGroupWorld+".maxItem")) {
+                            iLimit = config.getInt("Auction."+sGroupWorld+".maxItem");
+                        }
+                        if(iLimit != -1 && auctionHouse.getItemsCountByPlayer(player) >= iLimit) {
+                            ArrayList<String> a_sWorldReplace = new ArrayList<>();
+                            a_sWorldReplace.add(sErrorColor+iLimit+sOrangeColor+" item"+(iLimit>1?"s":""));
+                            sendMessageToPlayer(player,"auctionLimit", sOrangeColor, a_sWorldReplace);
+                            return true;
+                        }
 
                         if(args.length > 1) {
                             try {
@@ -3004,6 +3128,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                         break;
 
                     case "":
+                    case "display":
                     default:
 
                         iPage = 1;
@@ -3468,10 +3593,14 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                     dTotal = dCurrent + dAmount;
                 //}
                 saveMoneyPlayerInGroup(offlinePlayer, sGroupName, dTotal, false);
-                loadMoneyPlayerPerGroup(offlinePlayer, sGroupName);
+                if(offlinePlayer.isOnline()) {
+                    loadMoneyPlayerPerGroup(offlinePlayer, getGroupNameByWorld(((Player) offlinePlayer).getWorld().getName()));
+                }
+
+                String totalDisplay = econ.format(dTotal).replace("$", "");
 
                 List<String> a_sReplace = new ArrayList<String>();
-                a_sReplace.add(sYellowColor+dAmount+sCorrectColor);
+                a_sReplace.add(sYellowColor+totalDisplay+sCorrectColor);
                 a_sReplace.add(sErrorColor+itemName+sCorrectColor);
                 a_sReplace.add(sErrorColor+sGroupName);
 
@@ -3525,11 +3654,15 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                     dTotal = dCurrent + dAmount;
                 }
                 saveMoneyPlayerInGroup(offlinePlayer, sGroupName, dTotal, false);
-                loadMoneyPlayerPerGroup(offlinePlayer, sGroupName);
+                if(offlinePlayer.isOnline()) {
+                    loadMoneyPlayerPerGroup(offlinePlayer, getGroupNameByWorld(((Player) offlinePlayer).getWorld().getName()));
+                }
+
+                String totalDisplay = econ.format(dTotal).replace("$", "");
 
                 List<String> a_sReplace = new ArrayList<String>();
                 a_sReplace.add(offlinePlayerName+sCorrectColor);
-                a_sReplace.add(sErrorColor+dTotal+sCorrectColor);
+                a_sReplace.add(sErrorColor+totalDisplay+sCorrectColor);
                 a_sReplace.add(sErrorColor+sGroupName);
 
                 sendMessageToPlayer(sender, "haveNow", sErrorColor, a_sReplace);
@@ -3538,14 +3671,23 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
             case "set":
                 saveMoneyPlayerInGroup(offlinePlayer, sGroupName, dAmount, false);
-                loadMoneyPlayerPerGroup(offlinePlayer, sGroupName);
+                if(offlinePlayer.isOnline()) {
+                    loadMoneyPlayerPerGroup(offlinePlayer, getGroupNameByWorld(((Player) offlinePlayer).getWorld().getName()));
+                }
 
-                a_sReplace = new ArrayList<String>();
+                a_sReplace = new ArrayList<>();
                 a_sReplace.add(offlinePlayerName+sCorrectColor);
                 a_sReplace.add(sErrorColor+dAmount+sCorrectColor);
                 a_sReplace.add(sErrorColor+sGroupName);
 
                 sendMessageToPlayer(sender, "haveNow", sErrorColor, a_sReplace);
+                return;
+
+            case "set_auction_limit":
+                saveAuctionLimitForGroup(offlinePlayer, sGroupName, dAmount.intValue());
+                a_sReplace = new ArrayList<>();
+                a_sReplace.add(sCorrectColor+dAmount.intValue());
+                sendMessageToPlayer(sender, "auctionLimitChange", sErrorColor, a_sReplace);
                 return;
 
             case "":

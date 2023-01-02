@@ -107,6 +107,39 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
             case "ach":
             case "ac":
             case "hdv":
+                a_groupList = new ArrayList<>();
+                a_groupList.add("display");
+                a_groupList.add("sell");
+
+                switch(args.length) {
+                    case 1: //
+                        for(String sGroupOption : a_groupList) {
+                            if(args[0].equalsIgnoreCase("") || sGroupOption.startsWith(args[0]) || sGroupOption.toLowerCase().startsWith(args[0])) {
+                                list.add(sGroupOption);
+                            }
+                        }
+                        return list;
+
+                    case 2:
+                        // amount
+                        if(args[0].equalsIgnoreCase("sell")) {
+                            list.add("AMOUNT");
+                            return list;
+                        }
+                        else {
+                            return null;
+                        }
+
+                    case 3:
+                        // amount
+                        if(args[0].equalsIgnoreCase("sell")) {
+                            list.add("QTS");
+                            return list;
+                        }
+                        else {
+                            return null;
+                        }
+                }
                 return null;
 
             case "shop":
@@ -358,9 +391,9 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
                             case "player": // PARAM 1 FOR 4
 
                                 if(bAdmin) {
-                                    String[] a_sGroupOptions = {"Deposit", "Withdraw", "Set"};
+                                    String[] a_sGroupOptions = {"Deposit", "Withdraw", "Set", "Set_Auction_limit"};
                                     for (String sGroupOption : a_sGroupOptions) {
-                                        if (args[2].equalsIgnoreCase("") || sGroupOption.startsWith(args[3]) || sGroupOption.toLowerCase().startsWith(args[3])) {
+                                        if (args[3].equalsIgnoreCase("") || sGroupOption.startsWith(args[3]) || sGroupOption.toLowerCase().startsWith(args[3])) {
                                             list.add(sGroupOption);
                                         }
                                     }
@@ -397,6 +430,26 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
                                 }
 
                                 return list;
+
+                            default:
+                                return null;
+                        }
+
+                    case 5:
+                        switch(args[0].toLowerCase()) {
+
+                            case "player": // PARAM 1 FOR 5
+
+                                if(bAdmin) {
+                                    String[] a_sGroupOptions = {"AMOUNT"};
+                                    for (String sGroupOption : a_sGroupOptions) {
+                                        if (args[4].equalsIgnoreCase("") || sGroupOption.startsWith(args[4]) || sGroupOption.toLowerCase().startsWith(args[4])) {
+                                            list.add(sGroupOption);
+                                        }
+                                    }
+                                }
+                                return list;
+
 
                             default:
                                 return null;

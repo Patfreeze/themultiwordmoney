@@ -15,14 +15,15 @@ public class AuctionHouse {
     private Player player;
     private File dataFolder;
     private HashMap<Integer, AuctionItem> a_auctionItems = new HashMap<Integer, AuctionItem>();
-    private String sFileName;
+    private String sGroupName;
 
     public AuctionHouse(Player p, File df, String sWorldGroup) {
         this.player = p;
         this.dataFolder = df;
-        this.sFileName = sWorldGroup;
+        this.sGroupName = sWorldGroup;
         this.loadFromFile();
     }
+
 
     private static <T, E> Set<T> getKeysByValue(Map<T, E> map, E value) {
         Set<T> keys = new HashSet<T>();
@@ -32,6 +33,23 @@ public class AuctionHouse {
             }
         }
         return keys;
+    }
+
+    public String getGroupName() {
+        return this.sGroupName;
+    }
+
+    public int getItemsCountByPlayer(Player player) {
+
+        HashMap<Integer, AuctionItem> a_returnItems = new HashMap<>();
+        int iCount = 0;
+        for(int acItemKey : a_auctionItems.keySet()) {
+            AuctionItem auctionItem = a_auctionItems.get(acItemKey);
+            if(auctionItem.getPlayerOwner().getUniqueId() == player.getUniqueId()) {
+                iCount++;
+            }
+        }
+        return iCount;
     }
 
     public HashMap<Integer, AuctionItem> getAuctionItems(AhItemsType eType) {
@@ -170,7 +188,7 @@ public class AuctionHouse {
         // CREATE PLAYER FILE
         FileConfiguration config = null;
 
-        File file = new File(dataFolder+File.separator+"Auction", this.sFileName+".yml");
+        File file = new File(dataFolder+File.separator+"Auction", this.sGroupName +".yml");
 
         if(!file.exists()){
             file.getParentFile().mkdirs();

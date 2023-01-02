@@ -132,7 +132,7 @@ public class GuiCMD {
 
         lore = new ArrayList<>();
         lore.add("QTS: "+shopAdmin.getQuantity());
-        placeItem(26, Material.CHEST, sColorGreen+"Info", lore, 1, false);
+        placeItem(26, Material.CHEST, sColorGreen+TheMultiWorldMoney.getTranslatedKeys("info"), lore, 1, false);
     }
 
     private void getChangeShopItem(ShopAdmin shopAdmin) {
@@ -288,6 +288,7 @@ public class GuiCMD {
 
         // Info Player
         lore = new ArrayList<>();
+        lore.add(sColorGreen+"§lG:§r "+sColorGreen+TheMultiWorldMoney.capitalize(auctionHouse.getGroupName()));
         lore.add(sColorGold+"§lBalance:§r "+sColorGold+TheMultiWorldMoney.econ.format(TheMultiWorldMoney.econ.getBalance(player)));
         ItemStack itemStackMenu = new ItemStack(Material.GOLD_NUGGET);
         placeItem(45, itemStackMenu, "§lINFO", lore);
@@ -309,14 +310,18 @@ public class GuiCMD {
 
 
         // Pages <- 1 ->
-        lore = new ArrayList<>();
-        lore.add(TheMultiWorldMoney.getTranslatedKeys("clickLeft"));
         itemStackMenu = new ItemStack(Material.PAPER);
         if(iPage != 1) {
+            lore = new ArrayList<>();
+            lore.add(TheMultiWorldMoney.getTranslatedKeys("clickLeft"));
+            lore.add((iPage - 1)+"");
             placeItem(52, itemStackMenu, "§lPage " + (iPage - 1), lore);
         }
 
         if(iPage < iMaxPage) {
+            lore = new ArrayList<>();
+            lore.add(TheMultiWorldMoney.getTranslatedKeys("clickLeft"));
+            lore.add((iPage + 1)+"");
             placeItem(53, itemStackMenu, "§lPage " + (iPage+1), lore);
         }
 
@@ -557,19 +562,18 @@ public class GuiCMD {
 
         Material matChange = Material.LIGHT_BLUE_STAINED_GLASS_PANE;
 
-        scheduleRefresh(plugin, matChange, 1);
-        scheduleRefresh(plugin, materialDefault, 3);
-        scheduleRefresh(plugin, matChange, 5);
-        scheduleRefresh(plugin, materialDefault, 7);
-        scheduleRefresh(plugin, matChange, 9);
-        scheduleRefresh(plugin, materialDefault, 11);
+        scheduleRefresh(plugin, matChange, 2);
+        scheduleRefresh(plugin, materialDefault, 4);
+        scheduleRefresh(plugin, matChange, 6);
+        scheduleRefresh(plugin, materialDefault, 8);
+        scheduleRefresh(plugin, matChange, 10);
 
         Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, new Runnable() {
             @Override
             public void run() {
                 runnable.run();
             }
-        }, 13);
+        }, 12);
 
     }
 
@@ -578,6 +582,9 @@ public class GuiCMD {
 
         lore = new ArrayList<>();
         String sConfirm = "§a"+TheMultiWorldMoney.getTranslatedKeys("confirm");
+        if(auctionItem.getPlayerOwner().getUniqueId() == player.getUniqueId()) {
+            sConfirm = "§a"+TheMultiWorldMoney.getTranslatedKeys("remove");
+        }
         placeItem(0, Material.GREEN_STAINED_GLASS_PANE, sConfirm, lore, 1, false);
         placeItem(1, Material.GREEN_STAINED_GLASS_PANE, sConfirm, lore, 1, false);
         placeItem(2, Material.GREEN_STAINED_GLASS_PANE, sConfirm, lore, 1, false);
