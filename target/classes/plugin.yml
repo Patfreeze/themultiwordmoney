@@ -42,7 +42,7 @@
         /shop
     themultiworldmoney:
       description: TheMultiWorldMoney command.
-      aliases: [tmwm]
+      aliases: [tmwm, themoney]
       permission: themultiworldmoney.themultiworldmoney
       usage: |
         /themultiworldmoney baltop [group]

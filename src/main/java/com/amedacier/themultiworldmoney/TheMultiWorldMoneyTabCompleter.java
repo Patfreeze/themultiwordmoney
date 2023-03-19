@@ -193,6 +193,7 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
 
             case "themultiworldmoney":
             case "tmwm":
+            case "themoney":
                 // TheMultiWorldMoney module so check what we need
                 a_groupList = new ArrayList<>();
 

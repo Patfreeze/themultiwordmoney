@@ -49,7 +49,8 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     // 2.3.6
     /*
-         - update to 1.19.3
+         - update to 1.19.4
+         - adding shortcut themoney
 
      */
 
@@ -121,7 +122,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
      */
 
     /**
-     * This will return the translate key otherwise the exact error
+     * This will return the translation key otherwise the exact error
      * @param sError
      * @return
      */
@@ -480,7 +481,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             e.printStackTrace();
         }
 
-        // Si nous avons un update à faire du fichier
+        // If we have an update to do
         if(isNeedUpdate) {
             config.set("version", sVersion);
             a_sComments = new ArrayList<String>();
@@ -742,7 +743,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             sReturn = "- No data for this page -";
         }
         else {
-            // Affiche total de tous
+            // Show total of all
             String moneyString = econ.format(dTotal);
             sReturn = sErrorColor+"Total: "+moneyString+"\n§r"+getTranslatedKeys("lastUpdate")+": "+configBaltop.getString("lastcall")+"\n"+sReturn;
 
@@ -796,6 +797,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
                 getCommand("themultiworldmoney").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
                 getCommand("tmwm").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
+                getCommand("themoney").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
 
                 getCommand("payto").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
 
