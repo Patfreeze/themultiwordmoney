@@ -1,0 +1,106 @@
+  name: TheMultiWorldMoney
+  version: 2.3.6
+  api-version: 1.17
+  description: The most powerful TheMultiWorldMoney never made before
+  # We could place every author in the authors list, but chose not to for illustrative purposes
+  # Also, having an author distinguishes that person as the project lead, and ensures their
+  # name is displayed first
+  author: Patfreeze
+  authors: [Patfreeze]
+  website: http://amedacier.com/
+
+  main: com.amedacier.themultiworldmoney.TheMultiWorldMoney
+  database: false
+  depend: [Vault, Essentials, ProtocolLib]
+  softdepend: []
+
+  commands:
+    killedplayers:
+      description: PayTo command.
+      aliases: []
+      permission: themultiworldmoney.payto
+      usage: |
+        /payto [name] [amount]
+    payto:
+      description: PayTo command.
+      aliases: [pay, thepay, thepayto]
+      permission: themultiworldmoney.payto
+      usage: |
+        /payto [name] [amount]
+    auction:
+      description: Auction command.
+      aliases: [ac, ah, hdv, ach]
+      permission: themultiworldmoney.auction
+      usage: |
+        /auction
+        /auction [sell] [price] [amount]
+    shop:
+      description: Shop command.
+      aliases: []
+      permission: themultiworldmoney.createshop
+      usage: |
+        /shop
+    themultiworldmoney:
+      description: TheMultiWorldMoney command.
+      aliases: [tmwm]
+      permission: themultiworldmoney.themultiworldmoney
+      usage: |
+        /themultiworldmoney baltop [group]
+        /themultiworldmoney group
+        /themultiworldmoney help
+        /themultiworldmoney player
+        /themultiworldmoney pay [player] [amount]
+        /themultiworldmoney create_shop
+  permissions:
+    killedplayers.*:
+      description: Give acces to all killedplayers commands
+      children:
+        payto.use: true
+    killedplayers.use:
+      description: Allows you to use command use of killedplayers
+      default: true
+      permission-message: 'You do not have the permission killedplayers.use'
+    auction.*:
+      description: Give acces to all auction commands
+      children:
+        auction.use: true
+    auction.use:
+      description: Allows you to use command use of auction
+      default: true
+      permission-message: 'You do not have the permission auction.use'
+    payto.*:
+      description: Give acces to all payto commands
+      children:
+        payto.use: true
+    payto.use:
+      description: Allows you to use command use of payto
+      default: true
+      permission-message: 'You do not have the permission payto.use'
+    themultiworldmoney.*:
+      description: Gives access to all themultiworldmoney commands
+      children:
+        themultiworldmoney.admin: false
+        themultiworldmoney.mod: false
+        themultiworldmoney.pay: true
+        themultiworldmoney.createshop: true
+        themultiworldmoney.auction: true
+    themultiworldmoney.admin:
+      description: Allows you to use command for administrator
+      default: false
+      permission-message: 'You do not have the permission themultiworldmoney.admin'
+    themultiworldmoney.mod:
+      description: Allows you to use command for moderator
+      default: false
+      permission-message: 'You do not have the permission themultiworldmoney.mod'
+    themultiworldmoney.pay:
+      description: Allows you to use command to pay someone
+      default: true
+      permission-message: 'You do not have the permission themultiworldmoney.pay'
+    themultiworldmoney.createshop:
+      description: Allows you to use command to create_shop
+      default: true
+      permission-message: 'You do not have the permission themultiworldmoney.createshop'
+    themultiworldmoney.auction:
+      description: Allows you to use command to auction
+      default: true
+      permission-message: 'You do not have the permission themultiworldmoney.auction'
