@@ -6,6 +6,8 @@ import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
 //import org.bukkit.block.data.BlockData;
 //import org.bukkit.block.data.Directional;
+import org.bukkit.block.sign.Side;
+import org.bukkit.block.sign.SignSide;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.*;
@@ -205,14 +207,24 @@ public class ShopAdmin {
         if (block.getType().name().contains("_SIGN")) {
 
             Sign sign = (Sign) block.getState();
-            sign.setGlowingText(true);
 
-            if(ChatColor.stripColor(sign.getLine(0)).equalsIgnoreCase("[tmwm]")) {
-                sign.setLine(0, "§6[TMWM]");
-                sign.setLine(1, "§1SHOP");
+            SignSide signFront = sign.getSide(Side.FRONT);
+            SignSide signBack = sign.getSide(Side.BACK);
 
-                sign.setLine(2, "§3"+itemStack.getType().name());
-                sign.setLine(3, "§2S:"+getSellPrice()+" §4B:"+getBuyPrice());
+            // we need to update both side??
+            signFront.setGlowingText(true);
+            signBack.setGlowingText(true);
+
+            if(ChatColor.stripColor(signFront.getLine(0)).equalsIgnoreCase("[tmwm]") || ChatColor.stripColor(signBack.getLine(0)).equalsIgnoreCase("[tmwm]")) {
+                signFront.setLine(0, "§6[TMWM]");
+                signFront.setLine(1, "§1SHOP");
+                signFront.setLine(2, "§3"+itemStack.getType().name());
+                signFront.setLine(3, "§2S:"+getSellPrice()+" §4B:"+getBuyPrice());
+
+                signBack.setLine(0, "§6[TMWM]");
+                signBack.setLine(1, "§1SHOP");
+                signBack.setLine(2, "§3"+itemStack.getType().name());
+                signBack.setLine(3, "§2S:"+getSellPrice()+" §4B:"+getBuyPrice());
 
                 sign.update();
             }

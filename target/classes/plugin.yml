@@ -1,5 +1,5 @@
   name: TheMultiWorldMoney
-  version: 2.3.6
+  version: 2.3.7
   api-version: 1.17
   description: The most powerful TheMultiWorldMoney never made before
   # We could place every author in the authors list, but chose not to for illustrative purposes
@@ -11,7 +11,7 @@
 
   main: com.amedacier.themultiworldmoney.TheMultiWorldMoney
   database: false
-  depend: [Vault, Essentials, ProtocolLib]
+  depend: [Vault, Essentials]
   softdepend: []
 
   commands:

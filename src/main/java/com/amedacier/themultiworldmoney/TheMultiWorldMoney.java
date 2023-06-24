@@ -9,6 +9,8 @@ import org.bukkit.*;
 import org.bukkit.block.Barrel;
 import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
+import org.bukkit.block.sign.Side;
+import org.bukkit.block.sign.SignSide;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
@@ -47,6 +49,14 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     static String sTimezone = "America/New_York";
 
+    // 2.3.7
+    /*
+        - update for 1.20.1
+        - adding config for sPluginName in game
+        - fix problem with sign now writable in both side (front & back)
+
+     */
+
     // 2.3.6
     /*
          - update to 1.19.4
@@ -63,7 +73,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     private static final DecimalFormat df = new DecimalFormat("0.00");
 
-    String sPluginName = "§c[§eTheMultiWorldMoney - TMWM§c] "; // PlugIn Name in Yellow
+    String sPluginName = "§c[§eTMWM§c] "; // PlugIn Name in Yellow (default one)
     public static final String sPluginNameNoColor = "TheMultiWorldMoney";
     String sErrorColor = "§c"; // LightRed
     String sObjectColor = "§a"; // LightGreen
@@ -457,6 +467,21 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         config.setComments("iAuctionExpirationDay", a_sComments);
 
         expirationAuctionDay = config.getInt("iAuctionExpirationDay");
+
+        // Added in v2.3.7
+        if(!config.isSet("sPluginChat")) {
+            config.set("sPluginChat", sPluginName);
+            isNeedUpdate = true;
+        }
+        else {
+            sPluginName = config.getString("sPluginChat");
+        }
+        a_sComments = new ArrayList<String>();
+        a_sComments.add(CONFIG_SEPARATOR);
+        a_sComments.add("This is the name showing in the chat");
+        a_sComments.add("previously it was [TheMultiWorldMoney - TMWM]");
+        a_sComments.add(CONFIG_SEPARATOR);
+        config.setComments("iAuctionExpirationDay", a_sComments);
 
         /*
         a_sComments = new ArrayList<String>();
@@ -857,7 +882,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                 }
 
                 // Backup before player login
-                // This will prevent if errors occurs get a backup for vault
+                // This will prevent if errors occurs get a backup from vault
                 makeBackup();
 
                 // Load from file
@@ -874,28 +899,6 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             }
         }, 2);
     }
-
-    /*
-    private void cancelPlayerAutoSave(Player player) {
-        if(a_AutoSaveHandler.get(player.getUniqueId()) != null) {
-            Bukkit.getScheduler().cancelTask(a_AutoSaveHandler.get(player.getUniqueId()));
-        }
-    }
-     */
-
-    /*
-    private void handleChangingWorldAutoSave(Player player) {
-        cancelPlayerAutoSave(player);
-        int iTask = Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
-            @Override
-            public void run() {
-                addAutoSave(player);
-            }
-        }, 20*5);
-        // Need this if player change find and return back
-        a_AutoSaveHandler.put(player.getUniqueId(), iTask);
-    }
-     */
 
     private int getInvAmountForItems(Player player, ItemStack itemStack, int iMax) {
 
@@ -971,22 +974,42 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         LOG.info(String.format("[%s] Disabled Version %s", getDescription().getName(), getDescription().getVersion()));
     }
 
+    private boolean isBothSideEqual(Sign signShop, int iLine, String str) {
+
+        SignSide singSideFront = signShop.getSide(Side.FRONT);
+        SignSide singSideBack = signShop.getSide(Side.BACK);
+
+        return ChatColor.stripColor(singSideFront.getLine(iLine)).trim().equalsIgnoreCase(str) || ChatColor.stripColor(singSideBack.getLine(iLine)).trim().equalsIgnoreCase(str);
+    }
+
 
     @EventHandler
     // onClickBlock onClickSign
     public void clickBlock(PlayerInteractEvent e) {
         Player player = e.getPlayer();
 
+
         // Protection if no block clicked just ignore
         if(e.getClickedBlock() == null) {
             return;
         }
+
         if(e.getClickedBlock() != null && e.getClickedBlock().getType().name().contains("_SIGN")) {
 
+
             Sign signShop = (Sign) e.getClickedBlock().getState();
-            if(ChatColor.stripColor(signShop.getLine(0)).equalsIgnoreCase("[tmwm]") && ChatColor.stripColor(signShop.getLine(1)).equalsIgnoreCase("shop")) {
-                if(ChatColor.stripColor(signShop.getLine(2)).trim().isEmpty() || ChatColor.stripColor(signShop.getLine(3)).trim().isEmpty()) {
+
+            if(
+                isBothSideEqual(signShop, 0, "[tmwm]") &&
+                isBothSideEqual(signShop, 1, "shop")
+            ) {
+                if(
+                    isBothSideEqual(signShop, 2, "") ||
+                    isBothSideEqual(signShop, 3, "")
+                )
+                {
                     // not a real sign just ignore
+
                    return;
                 }
                 // Left click
@@ -1006,45 +1029,6 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             return;
         }
 
-        // Protection Barrel TODO: remove if sign do the job
-        /*
-        if(e.getClickedBlock().getType() == Material.BARREL) {
-
-            Barrel barrel = (Barrel) e.getClickedBlock().getState();
-
-            // TODO: Check if we have a sign stick on this with the word [tmwm] shop
-
-            //guard if not a shop ignore
-            if(barrel.getCustomName() == null || !barrel.getCustomName().equalsIgnoreCase(barrelShopName)) {
-                return;
-            }
-
-            // Left click
-            if (e.getAction() == Action.LEFT_CLICK_BLOCK) {
-                if(player.getGameMode() == GameMode.CREATIVE && player.getInventory().getItemInMainHand().getType() != Material.STICK) {
-                    e.setCancelled(true);
-                    sendMessageToPlayer(player, getTranslatedKeys("destroyShopStick"), sErrorColor);
-                }
-                else if(player.getGameMode() == GameMode.CREATIVE && player.getInventory().getItemInMainHand().getType() == Material.STICK) {
-                    sendMessageToPlayer(player, getTranslatedKeys("destroyShop"), sErrorColor);
-                    ShopAdmin shopAdmin = new ShopAdmin(player, getDataFolder(), barrel.getLocation(), true);
-                    shopAdmin.deleteShop();
-                    a_objShowItemShop.put(barrel.getLocation(), null);
-                }
-
-                if(player.getGameMode() == GameMode.SURVIVAL) {
-                    e.setCancelled(true);
-
-                    openShop(player, barrel.getLocation());
-                }
-            }
-
-            if(e.getAction() == Action.RIGHT_CLICK_BLOCK) {
-                e.setCancelled(true);
-                openShop(player, barrel.getLocation());
-            }
-        }
-        */
     }
 
     @EventHandler
@@ -1055,38 +1039,25 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         }
     }
 
-    @EventHandler
-    public void onPlayerPlaceBlock(BlockPlaceEvent event) {
-        if(event.getPlayer() != null) {
-            Player player = event.getPlayer();
-
-            //TODO: To get Buy and Sell we need the sign like so
-            // Line One:    [tmwm]
-            // Line two:    * (item in hand) or DIAMOND
-            // Line three:  B 200 : S 100
-
-            if(event.getBlockPlaced().getState() instanceof Barrel) {
-                Barrel barrel = (Barrel) event.getBlockPlaced().getState();
-                if (event.getBlockPlaced().getType() == Material.BARREL && barrel.getCustomName() != null && barrel.getCustomName().equalsIgnoreCase(barrelShopName)) {
-                    createShop(player, event.getBlockPlaced().getLocation());
-                }
-            }
-        }
-    }
-
     private void clearSign(Block block) {
 
         if (block.getType().name().contains("_SIGN")) {
 
             Sign sign = (Sign) block.getState();
-            sign.setGlowingText(false);
 
-            if(ChatColor.stripColor(sign.getLine(0)).equalsIgnoreCase("[tmwm]")) {
-                sign.setLine(0, " ");
-                sign.setLine(1, " ");
+            // Now we have both side for sign :/
+            SignSide signFront = sign.getSide(Side.FRONT);
+            SignSide signBack = sign.getSide(Side.BACK);
 
-                sign.setLine(2, " ");
-                sign.setLine(3, " ");
+            signFront.setGlowingText(false);
+            signBack.setGlowingText(false);
+
+            if(isBothSideEqual(sign,0,"[tmwm]")) {
+
+                for(int i=0; i<4; i++) {
+                    signFront.setLine(i, " ");
+                    signBack.setLine(i, " ");
+                }
 
                 sign.update();
             }
@@ -1102,7 +1073,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     public void onSignChange(SignChangeEvent e) {
         if (e.getPlayer().hasPermission("sign.color")) {
 
-            if (ChatColor.stripColor(e.getLine(0)).equalsIgnoreCase("[tmwm]")) {
+            if (ChatColor.stripColor(e.getLine(0)).trim().equalsIgnoreCase("[tmwm]")) {
 
                 Player player = e.getPlayer();
 
@@ -2107,22 +2078,21 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         //handleChangingWorldAutoSave(player);
 
         // We check if world is in a group
-        LOG.warning("checkGroupWorld...");
         checkGroupWorld(player);
 
         // Save player money from last world
-        LOG.warning("saveMoneyPlayerPerGroup...");
+
         saveMoneyPlayerPerGroup(player, e.getFrom().getName());
 
         // Check if we are in the same group otherwise clear and load
-        LOG.warning("isWorldInSameGroup...");
+
         if(!isWorldInSameGroup(e.getFrom().getName(), player.getWorld().getName())) {
             ////////////////////////////////////////
             //Not same world we do nothing more
             ////////////////////////////////////////
 
             // Load player money from group World
-            LOG.warning("loadMoneyPlayerPerWorld...");
+
             loadMoneyPlayerPerWorld(player, player.getWorld().getName());
 
         }
