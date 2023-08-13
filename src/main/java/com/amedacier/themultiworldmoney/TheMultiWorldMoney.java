@@ -49,6 +49,12 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     static String sTimezone = "America/New_York";
 
+    // 2.3.8
+    /*
+        - adding config enableShop to enable/disable shop
+
+     */
+
     // 2.3.7
     /*
         - update for 1.20.1
@@ -476,12 +482,24 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         else {
             sPluginName = config.getString("sPluginChat");
         }
-        a_sComments = new ArrayList<String>();
+        a_sComments = new ArrayList<>();
         a_sComments.add(CONFIG_SEPARATOR);
         a_sComments.add("This is the name showing in the chat");
         a_sComments.add("previously it was [TheMultiWorldMoney - TMWM]");
         a_sComments.add(CONFIG_SEPARATOR);
-        config.setComments("iAuctionExpirationDay", a_sComments);
+        config.setComments("sPluginChat", a_sComments);
+
+        // Added in v2.3.8
+        if(!config.isSet("enableShop")) {
+            config.set("enableShop", true);
+            isNeedUpdate = true;
+        }
+
+        a_sComments = new ArrayList<>();
+        a_sComments.add(CONFIG_SEPARATOR);
+        a_sComments.add("This will enable or disable the shop & auction");
+        a_sComments.add(CONFIG_SEPARATOR);
+        config.setComments("enableShop", a_sComments);
 
         /*
         a_sComments = new ArrayList<String>();
@@ -820,6 +838,13 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                     return;
                 }
 
+                // Create file
+                try {
+                    createFiles();
+                } catch (InvalidConfigurationException e) {
+                    e.printStackTrace();
+                }
+
                 getCommand("themultiworldmoney").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
                 getCommand("tmwm").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
                 getCommand("themoney").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
@@ -828,23 +853,18 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
                 getCommand("killedplayers").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
 
-                getCommand("auction").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
-                getCommand("ac").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
-                getCommand("ah").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
-                getCommand("ach").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
-                getCommand("hdv").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
+                if(config.getBoolean("enableShop")) {
+                    getCommand("auction").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
+                    getCommand("ac").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
+                    getCommand("ah").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
+                    getCommand("ach").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
+                    getCommand("hdv").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
+                }
 
                 setupPermissions();
                 setupChat();
 
                 Bukkit.getPluginManager().registerEvents(_this,_this);
-
-                // Create file
-                try {
-                    createFiles();
-                } catch (InvalidConfigurationException e) {
-                    e.printStackTrace();
-                }
 
                 // LOG INFO
                 LOG.info(ANSI_GREEN+"------------------------------------------"+ANSI_RESET);
@@ -1001,7 +1021,8 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
             if(
                 isBothSideEqual(signShop, 0, "[tmwm]") &&
-                isBothSideEqual(signShop, 1, "shop")
+                isBothSideEqual(signShop, 1, "shop") &&
+                config.getBoolean("enableShop")
             ) {
                 if(
                     isBothSideEqual(signShop, 2, "") ||
@@ -1096,7 +1117,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                         return;
                 }
 
-                if (secondLine.equalsIgnoreCase("shop")) {
+                if (config.getBoolean("enableShop") && secondLine.equalsIgnoreCase("shop")) {
                     // createShop
                     createShop(player, e.getBlock().getLocation());
                 }
@@ -2997,7 +3018,12 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
                 // first we check is enabled here by default is true if false just send message
                 String sGroupWorld = getGroupNameByWorld(player.getWorld().getName());
-                if(dataFile.isSet("groupinfo."+sGroupWorld+".auctionHouseEnable") && !dataFile.getBoolean("groupinfo."+sGroupWorld+".auctionHouseEnable")) {
+                if(!config.getBoolean("enableShop") ||
+                    (
+                     dataFile.isSet("groupinfo."+sGroupWorld+".auctionHouseEnable") &&
+                    !dataFile.getBoolean("groupinfo."+sGroupWorld+".auctionHouseEnable")
+                    )
+                ) {
                     sendMessageToPlayer(player, "auctionNotActivated", sOrangeColor);
                     return true;
                 }
@@ -3115,8 +3141,11 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                 }
                 return true;
 
+            case "shopm":
             case "shop":
-                player.performCommand("tmwm create_shop");
+            case "shopy":
+            case "theshop":
+                    player.performCommand("tmwm create_shop");
                 return true;
 
             case "killedplayers":
@@ -3228,6 +3257,11 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                             // Not a console command
                             if(bConsole) {
                                 sendMessageToConsoleCannotUse(sender);
+                                return true;
+                            }
+
+                            if(!config.getBoolean("enableShop")) {
+                                sendMessageToPlayer(player, "disableShop", sErrorColor, "");
                                 return true;
                             }
 
@@ -3479,6 +3513,12 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     private void createShop(Player player, Location locationBarrel) {
 
+        // Guard if shop is disabled
+        if(!config.getBoolean("enableShop")) {
+            sendMessageToPlayer(player, "disableShop", sErrorColor, "");
+            return;
+        }
+
         // if file already exist load from it
         String sLocation = locationBarrel.getBlockX()+"_"+locationBarrel.getBlockY()+"_"+locationBarrel.getBlockZ();
         File file = new File(getDataFolder()+File.separator+"Shop", locationBarrel.getWorld().getName()+"_"+sLocation+".yml");
@@ -3506,6 +3546,13 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     }
 
     private void openShop(Player player, Location locationBarrel) {
+
+        // Guard if shop is disabled
+        if(!config.getBoolean("enableShop")) {
+            sendMessageToPlayer(player, "disableShop", sErrorColor, "");
+            return;
+        }
+
         player.playNote(player.getLocation(), Instrument.BELL, Note.natural(1, Note.Tone.C));
         ShopAdmin shopAdmin = new ShopAdmin(player, getDataFolder(), locationBarrel, true);
         Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {

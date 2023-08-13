@@ -1,5 +1,5 @@
   name: TheMultiWorldMoney
-  version: 2.3.7
+  version: 2.3.8
   api-version: 1.17
   description: The most powerful TheMultiWorldMoney never made before
   # We could place every author in the authors list, but chose not to for illustrative purposes
@@ -34,9 +34,9 @@
       usage: |
         /auction
         /auction [sell] [price] [amount]
-    shop:
+    shopm:
       description: Shop command.
-      aliases: []
+      aliases: [shop,theshop,shopy]
       permission: themultiworldmoney.createshop
       usage: |
         /shop

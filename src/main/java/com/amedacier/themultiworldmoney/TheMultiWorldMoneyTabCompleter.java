@@ -142,7 +142,10 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
                 }
                 return null;
 
+            case "shopm":
             case "shop":
+            case "shopy":
+            case "theshop":
                 return null;
 
             case "killedplayers":
