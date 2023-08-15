@@ -2,9 +2,7 @@ package com.amedacier.themultiworldmoney;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Function;
+import java.util.*;
 
 import org.bukkit.Bukkit;
 //import org.bukkit.Material;
@@ -99,6 +97,7 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
         }
         List<String> a_groupList = new ArrayList<>();
 
+        Map<String, Object> groups = Objects.requireNonNull(dataFile.getConfigurationSection("group")).getValues(false);
 
         switch(cmd.getName().toLowerCase()) {
 
@@ -168,6 +167,7 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
                 return null;
 
             case "payto":
+            case "pay":
 
                 switch(args.length) {
                     case 1:
@@ -188,6 +188,14 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
                         list.add("1");
                         list.add("10");
                         list.add("100");
+                        return list;
+
+                    case 3:
+                        //group
+                        groups.forEach((key, value) -> {
+                            list.add(key);
+                        });
+
                         return list;
                 }
 

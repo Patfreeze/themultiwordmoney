@@ -6,7 +6,6 @@ import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
 import net.milkbowl.vault.permission.Permission;
 import org.bukkit.*;
-import org.bukkit.block.Barrel;
 import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
 import org.bukkit.block.sign.Side;
@@ -22,7 +21,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
@@ -37,11 +35,13 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import javax.annotation.Nullable;
 import java.text.DecimalFormat;
 
 import java.util.*;
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.logging.Logger;
 
@@ -234,6 +234,27 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             }
         }
         player.sendMessage(sColor+sOutput);
+    }
+
+    private void sendMessageToPlayer(Player player, String sKeyMessage, @Nullable HashMap<String, String> replace) {
+        player.sendMessage(sPluginName);
+
+        // We take what we have from the translatedKey
+        String sOutput = getTranslatedKeys(sKeyMessage);
+
+        if (replace == null) {
+            sOutput = ChatColor.translateAlternateColorCodes('&', sOutput);
+        } else {
+            AtomicReference<String> result = new AtomicReference<>(sOutput);
+
+            replace.forEach((key, value) -> {
+                result.set(result.get().replaceAll("%" + key + "%", value));
+            });
+
+            sOutput = ChatColor.translateAlternateColorCodes('&', result.get());
+        }
+
+        player.sendMessage(sOutput);
     }
 
     private void sendMessageToPlayer(Player player, String sKeyMessage, String sColor) {
@@ -2798,15 +2819,15 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         sender.sendMessage(sPluginName);
         if(havePermission(sender, "pay")) {
             sStartLine = "/tmwm pay";
-            sender.sendMessage(sErrorColor+sStartLine+" [PLAYERNAME] [AMOUNT]");
-            sender.sendMessage("§7also /payto [PLAYERNAME] [AMOUNT]");
+            sender.sendMessage(sErrorColor+sStartLine+" [PLAYERNAME] [AMOUNT] [GROUP]");
+            sender.sendMessage("§7also /payto [PLAYERNAME] [AMOUNT] [GROUP]");
         }
         else {
             sendMessageToPlayer(sender, "havePermission", sErrorColor, "pay");
         }
     }
 
-    private void payPlayer(Player playerDonator, String playerName, String amount) {
+    private void payPlayer(Player playerDonator, String playerName, String amount, String group) {
 
         // Check if playerName is online
         Player playerReceive = Bukkit.getPlayer(playerName);
@@ -2815,59 +2836,77 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
             return;
         }
 
-        // Check if both is in the same world (config for distance?)
-        if(!playerDonator.getWorld().getName().equalsIgnoreCase(playerReceive.getWorld().getName().toLowerCase())) {
-            sendMessageToPlayer(playerDonator, "notInSameWorld", sErrorColor, playerName);
+        // If group is null, get user current group
+        if(Objects.equals(group, "")) {
+            group = getGroupNameByWorld(playerDonator.getWorld().getName().toLowerCase());
+
+            if(group == null) {
+                sendMessageToPlayer(playerDonator, "worldNotExist", sErrorColor);
+
+                return;
+            }
+        }
+
+        File file = getFileMoneyPlayerPerGroup(playerDonator, false);
+        FileConfiguration config = YamlConfiguration.loadConfiguration(file);
+
+        file = getFileMoneyPlayerPerGroup(playerReceive, false);
+        FileConfiguration receiverConfig = YamlConfiguration.loadConfiguration(file);
+
+        if(!group.contentEquals("[moneyGroup]") && !config.isDouble("Player."+group)) {
+            sendMessageToPlayer(playerDonator, "payGroupNotFound", sErrorColor, arg2);
             return;
         }
 
+        if(!group.contentEquals("[moneyGroup]") && !receiverConfig.isDouble("Player."+group)) {
+            sendMessageToPlayer(playerDonator, "payGroupNotFound", sErrorColor, arg2);
+            return;
+        }
+
+        double dCurrent = config.getDouble("Player."+group);
+        double receiverCurrent = receiverConfig.getDouble("Player."+group);
+
+        String receiverGroup = getGroupNameByWorld(playerReceive.getWorld().getName().toLowerCase());
+        String donatorGroup = getGroupNameByWorld(playerDonator.getWorld().getName().toLowerCase());
+
         // Convert string amount in double
-        Double dAmount = Double.parseDouble(amount);
+        double dAmount = Double.parseDouble(amount);
         if(dAmount < 0.01) {
             sendMessageToPlayer(playerDonator, "notEnoughAmount", sErrorColor);
             return;
         }
 
-        // Check if this player have this amount in his balance
-        double iPlayerDonatorBal = econ.getBalance(playerDonator);
-        if(dAmount > iPlayerDonatorBal) {
+        if(dCurrent < dAmount) {
             sendMessageToPlayer(playerDonator, "notEnoughMoney", sErrorColor);
             return;
         }
 
-        // Remove from the player the amount
-        boolean bWithdrawOK = true;
-        EconomyResponse r = econ.withdrawPlayer(playerDonator,dAmount);
-        if(r.transactionSuccess()) {} else {
-            sendMessageToPlayer(playerDonator, "transactionFailed", sErrorColor);
-            LOG.info(String.format("An error occured: %s", r.errorMessage));
-            bWithdrawOK = false;
-        }
+        HashMap<String, String> map = new HashMap<>();
 
-        // Give the amount to the new player
-        if(bWithdrawOK) {
-            r = econ.depositPlayer(playerReceive, dAmount);
-            if (r.transactionSuccess()) {
-            } else {
-                sendMessageToPlayer(playerDonator, "transactionFailed", sErrorColor);
-                LOG.info(String.format("An error occured: %s", r.errorMessage));
-            }
+        saveMoneyPlayerInGroup(playerDonator, group, dCurrent - dAmount, false);
+        saveMoneyPlayerInGroup(playerReceive, group, receiverCurrent + dAmount, false);
+
+        loadMoneyPlayerPerGroup(playerDonator, donatorGroup);
+        loadMoneyPlayerPerGroup(playerReceive, receiverGroup);
+
+        Object displayNameObj = dataFile.getConfigurationSection("groupinfo").getConfigurationSection(group).get("displayname");
+        String displayName = group;
+
+        if(displayNameObj != null) {
+            displayName = displayNameObj.toString();
         }
 
         // Send Message to both if Eco was successful if ECO was not send its own message
-        List<String> a_sReplace = new ArrayList<>();
-        a_sReplace.add("§a-"+econ.format(dAmount).replaceAll("[^\\d.]", "")+"§r");
-        a_sReplace.add("§a"+playerName+"§r");
+        map.put("paid_to", playerReceive.getName());
+        map.put("paid_from", playerDonator.getName());
+        map.put("amount", econ.format(dAmount).replaceAll("[^\\d.]", ""));
+        map.put("group_display_name", displayName);
 
         // Donator message
-        sendMessageToPlayer(playerDonator, "paidTo", "",a_sReplace);
-
-        a_sReplace.clear();
-        a_sReplace.add("§a"+playerDonator.getName()+"§r");
-        a_sReplace.add("§a"+econ.format(dAmount).replaceAll("[^\\d.]", "")+" §r");
+        sendMessageToPlayer(playerDonator, "paidTo", map);
 
         // Receiver message
-        sendMessageToPlayer(playerReceive, "paidFrom", "", a_sReplace);
+        sendMessageToPlayer(playerReceive, "paidFrom", map);
     }
 
     // Ratio killed vs killer
@@ -3168,8 +3207,13 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                 }
 
                 if(args.length > 1 && havePermission(sender, "pay")) {
+                    String args2 = "";
+                    if(args.length > 2) {
+                        args2 = args[2].toLowerCase();
+                    }
+
                     // call function
-                    payPlayer(player, args[0], args[1]);
+                    payPlayer(player, args[0], args[1], args2);
                 }
                 else {
                     helpMenuPay(sender);
@@ -3219,8 +3263,14 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                                     return true;
                                 }
 
+                                String args3 = "";
+                                if(args.length > 3) {
+                                    args3 = args[3].toLowerCase();
+                                }
+
+
                                 // call function
-                                payPlayer(player, args[1], args[2]);
+                                payPlayer(player, args[1], args[2], args3);
                             }
                             else {
                                 helpMenuPay(sender);

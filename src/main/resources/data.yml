@@ -13,3 +13,4 @@ group:
 groupinfo:
   default:
     startingbalance: 0.0
+    displayname: "&aDefault World"

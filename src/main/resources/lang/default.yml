@@ -14,8 +14,14 @@ notInSameWorld: "%s is not in the same world as you!"
 notEnoughAmount: "Well! Not sure this amount is enough!"
 notEnoughMoney: "Not enough money!"
 transactionFailed: "Transaction failed sorry ask an OP to check console!"
-paidTo: "You paid %s to %s!"
-paidFrom: "Thanks to %s that give you %s!"
+
+#paid_from - who transferred the money
+#paid_to - who was the money transferred to?
+#amount - How much
+#group_display_name - Group name
+paidTo: "You paid &a%paid_to%&r to &a%amount%&r in world group [%group_display_name%]!"
+paidFrom: "Thanks to %paid_from% that give you %amount%!"
+
 killVsDeath: "In %s - %s kills vs %s death."
 yourRate: "Your ratio is %s"
 haveNow: "%s have now %s in %s"
