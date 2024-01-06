@@ -6,7 +6,6 @@ import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
 import net.milkbowl.vault.permission.Permission;
 import org.bukkit.*;
-import org.bukkit.block.Barrel;
 import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
 import org.bukkit.block.sign.Side;
@@ -22,7 +21,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
@@ -48,6 +46,12 @@ import java.util.logging.Logger;
 public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     static String sTimezone = "America/New_York";
+
+    // 2.3.9
+    /*
+        - update for 1.20.2
+
+     */
 
     // 2.3.8
     /*
@@ -95,7 +99,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
     String arg2 = "";
     String arg3 = "";
 
-    public static final String barrelShopName = "§9SHOP §5BARREL";
+    //public static final String barrelShopName = "§9SHOP §5BARREL";
     public static final Logger LOG = Logger.getLogger("Minecraft");
 
     // COLOR FOR COMMAND LINE
@@ -875,7 +879,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                 LOG.info(ANSI_GREEN+"-------------------------------------------"+ANSI_RESET);
 
                 // Now check if version in config file is OK
-                // Seens this must be update it self this check will be useless
+                // Since this must be updated itself this check will be useless
                 if(!config.isString("version")) {
                     LOG.info(ANSI_RED+"ALERT ALERT ALERT ALERT ALERT ALERT ALERT ALERT ALERT ALERT "+ANSI_RESET);
                     LOG.info(ANSI_RED+"ALERT ALERT ALERT ALERT ALERT ALERT ALERT ALERT ALERT ALERT "+ANSI_RESET);
