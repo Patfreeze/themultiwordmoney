@@ -102,6 +102,7 @@ public class TheMultiWorldMoneyTabCompleter implements TabCompleter {
 
         switch(cmd.getName().toLowerCase()) {
 
+            case "theauction":
             case "auction":
             case "ah":
             case "ach":

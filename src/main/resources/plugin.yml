@@ -27,13 +27,6 @@
       permission: themultiworldmoney.payto
       usage: |
         /payto [name] [amount]
-    auction:
-      description: Auction command.
-      aliases: [ac, ah, hdv, ach]
-      permission: themultiworldmoney.auction
-      usage: |
-        /auction
-        /auction [sell] [price] [amount]
     shopm:
       description: Shop command.
       aliases: [shop,theshop,shopy]

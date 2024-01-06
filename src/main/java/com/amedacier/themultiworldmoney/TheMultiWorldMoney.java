@@ -49,7 +49,16 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
     // 2.3.9
     /*
-        - update for 1.20.2
+        - update for 1.20.4
+
+        removed temporary
+            theauction:
+              description: Auction command.
+              aliases: [ac, ah, hdv, ach, auc]
+              permission: themultiworldmoney.auction
+              usage: |
+                /theauction
+                /theauction [sell] [price] [amount]
 
      */
 
@@ -505,6 +514,20 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         a_sComments.add(CONFIG_SEPARATOR);
         config.setComments("enableShop", a_sComments);
 
+        // Added in v2.3.9
+        if(!config.isSet("auctionPlugin")) {
+            config.set("auctionPlugin", "");
+            isNeedUpdate = true;
+        }
+
+        a_sComments = new ArrayList<>();
+        a_sComments.add(CONFIG_SEPARATOR);
+        a_sComments.add("This is the name of your auction plugin");
+        a_sComments.add("IE: themultiworldmoney:auction the plugin will be themultiworldmoney");
+
+        a_sComments.add(CONFIG_SEPARATOR);
+        config.setComments("auctionPlugin", a_sComments);
+
         /*
         a_sComments = new ArrayList<String>();
         a_sComments.add(CONFIG_SEPARATOR);
@@ -858,11 +881,15 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                 getCommand("killedplayers").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
 
                 if(config.getBoolean("enableShop")) {
+                    /* Temporary deactivate
+                    getCommand("theauction").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
                     getCommand("auction").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
                     getCommand("ac").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
+                    getCommand("auc").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
                     getCommand("ah").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
                     getCommand("ach").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
                     getCommand("hdv").setTabCompleter(new TheMultiWorldMoneyTabCompleter(getDataFolder()));
+                    */
                 }
 
                 setupPermissions();
@@ -913,7 +940,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                 reload();
 
             }
-        }, 2); // Wait a certain time because of Vault
+        }, 40); // Wait a certain time because of Vault
     }
 
     private void reload() {
@@ -1019,8 +1046,6 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
         }
 
         if(e.getClickedBlock() != null && e.getClickedBlock().getType().name().contains("_SIGN")) {
-
-
             Sign signShop = (Sign) e.getClickedBlock().getState();
 
             if(
@@ -1048,6 +1073,10 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
                         shopAdmin.deleteShop();
                         return; // Nothing more to do
                     }
+                }
+                else {
+                    // right+clicked
+                    e.setCancelled(true);
                 }
                 openShop(player, e.getClickedBlock().getLocation());
             }
@@ -3014,6 +3043,7 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
         switch(command.getName().toLowerCase()) {
 
+            case "theauction":
             case "auction":
             case "ah":
             case "ach":
@@ -3022,11 +3052,27 @@ public class TheMultiWorldMoney extends JavaPlugin implements Listener {
 
                 // first we check is enabled here by default is true if false just send message
                 String sGroupWorld = getGroupNameByWorld(player.getWorld().getName());
-                if(!config.getBoolean("enableShop") ||
-                    (
+
+                if(!config.getBoolean("enableShop")) {
+                    if(!config.getString("auctionPlugin").isEmpty()) {
+
+                        // rebuild args
+                        String argFinal = "";
+                        for(String arg : args) {
+                            argFinal = argFinal+arg+" ";
+                        }
+                        argFinal = argFinal.trim();
+
+                        consoleLog("dispatch "+config.getString("auctionPlugin")+":"+command.getName()+" "+argFinal);
+                        Bukkit.dispatchCommand(sender, config.getString("auctionPlugin")+":"+command.getName()+" "+argFinal);
+                    }
+                    return true;
+                }
+
+                if(
                      dataFile.isSet("groupinfo."+sGroupWorld+".auctionHouseEnable") &&
                     !dataFile.getBoolean("groupinfo."+sGroupWorld+".auctionHouseEnable")
-                    )
+
                 ) {
                     sendMessageToPlayer(player, "auctionNotActivated", sOrangeColor);
                     return true;
